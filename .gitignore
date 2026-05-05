@@ -16,6 +16,9 @@ dist-ssr
 !.env.example
 *.local
 
+# Supabase (contiene información sensible)
+supabase/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
