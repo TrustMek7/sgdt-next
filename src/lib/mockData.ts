@@ -189,17 +189,17 @@ export const mockDeviceTypes: DeviceType[] = [
 // DISPOSITIVOS DE EJEMPLO
 export const mockDevices: Device[] = [
   // Nuevos dispositivos en Fiscalización
-  { id: 'd1', inventoryCode: '', planCode: 'E3', typeId: 't4', status: 'New', floor: 2, destinationOfficeId: 'o4' },
-  { id: 'd2', inventoryCode: '', planCode: 'E3', typeId: 't4', status: 'New', floor: 2, destinationOfficeId: 'o4' },
-  { id: 'd3', inventoryCode: '', planCode: 'E3', typeId: 't4', status: 'New', floor: 2, destinationOfficeId: 'o4' },
-  { id: 'd4', inventoryCode: '', planCode: 'E5', typeId: 't6', status: 'New', floor: 2, destinationOfficeId: 'o4' },
-  { id: 'd5', inventoryCode: '', planCode: 'E6', typeId: 't7', status: 'New', floor: 2, destinationOfficeId: 'o4' },
-  { id: 'd6', inventoryCode: '', planCode: 'E9', typeId: 't10', status: 'New', floor: 2, destinationOfficeId: 'o5' },
-  { id: 'd7', inventoryCode: '', planCode: 'E1', typeId: 't1', status: 'New', floor: 1, destinationOfficeId: 'o1' },
-  { id: 'd8', inventoryCode: '', planCode: 'E1', typeId: 't1', status: 'New', floor: 1, destinationOfficeId: 'o1' },
-  
+  { id: 'd1', inventoryCode: '', planCode: 'E3', typeId: 't4', status: 'New', floor: 2, destinationOfficeId: 'o4', asignacion: 'asignado' },
+  { id: 'd2', inventoryCode: '', planCode: 'E3', typeId: 't4', status: 'New', floor: 2, destinationOfficeId: 'o4', asignacion: 'asignado' },
+  { id: 'd3', inventoryCode: '', planCode: 'E3', typeId: 't4', status: 'New', floor: 2, destinationOfficeId: 'o4', asignacion: 'asignado' },
+  { id: 'd4', inventoryCode: '', planCode: 'E5', typeId: 't6', status: 'New', floor: 2, destinationOfficeId: 'o4', asignacion: 'asignado' },
+  { id: 'd5', inventoryCode: '', planCode: 'E6', typeId: 't7', status: 'New', floor: 2, destinationOfficeId: 'o4', asignacion: 'asignado' },
+  { id: 'd6', inventoryCode: '', planCode: 'E9', typeId: 't10', status: 'New', floor: 2, destinationOfficeId: 'o5', asignacion: 'asignado' },
+  { id: 'd7', inventoryCode: '', planCode: 'E1', typeId: 't1', status: 'New', floor: 1, destinationOfficeId: 'o1', asignacion: 'asignado' },
+  { id: 'd8', inventoryCode: '', planCode: 'E1', typeId: 't1', status: 'New', floor: 1, destinationOfficeId: 'o1', asignacion: 'asignado' },
+
   // Dispositivos en traslado
-  { id: 'd9', inventoryCode: 'INV-2020-001', planCode: 'Ex1', typeId: 't18', status: 'Transfer', floor: 2, destinationOfficeId: 'o4', originOfficeId: 'o1' },
-  { id: 'd10', inventoryCode: 'INV-2020-002', planCode: 'Ex1', typeId: 't18', status: 'Transfer', floor: 2, destinationOfficeId: 'o4', originOfficeId: 'o2' },
-  { id: 'd11', inventoryCode: 'INV-2020-003', planCode: 'Ex2', typeId: 't19', status: 'Transfer', floor: 2, destinationOfficeId: 'o5', originOfficeId: 'o1' }
+  { id: 'd9', inventoryCode: 'INV-2020-001', planCode: 'Ex1', typeId: 't18', status: 'Transfer', floor: 2, destinationOfficeId: 'o4', originOfficeId: 'o1', asignacion: 'asignado' },
+  { id: 'd10', inventoryCode: 'INV-2020-002', planCode: 'Ex1', typeId: 't18', status: 'Transfer', floor: 2, destinationOfficeId: 'o4', originOfficeId: 'o2', asignacion: 'asignado' },
+  { id: 'd11', inventoryCode: 'INV-2020-003', planCode: 'Ex2', typeId: 't19', status: 'Transfer', floor: 2, destinationOfficeId: 'o5', originOfficeId: 'o1', asignacion: 'asignado' },
 ];

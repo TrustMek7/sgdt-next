@@ -12,10 +12,10 @@
   "dependencies": {
     "@emotion/react": "^11.13.3",
     "@react-pdf/renderer": "^3.4.5",
+    "@supabase/supabase-js": "^2.49.1",
     "axios": "^1.16.0",
     "lucide-react": "0.522.0",
     "next": "^14.2.33",
-    "@supabase/supabase-js": "^2.49.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.12.7",
@@ -29,11 +29,12 @@
     "@typescript-eslint/parser": "^5.54.0",
     "autoprefixer": "latest",
     "eslint": "^8.50.0",
+    "eslint-config-next": "^14.2.33",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.1",
+    "pg": "^8.20.0",
     "postcss": "latest",
     "tailwindcss": "3.4.17",
-    "typescript": "^5.5.4",
-    "eslint-config-next": "^14.2.33"
+    "typescript": "^5.5.4"
   }
 }

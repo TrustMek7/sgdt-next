@@ -27,6 +27,7 @@ export function useReports() {
     loadSummary();
   }, []);
 
+  const dependencias = summary?.dependencias || [];
   const areas = summary?.areas || [];
   const offices = summary?.offices || [];
   const devices = summary?.devices || [];
@@ -34,6 +35,7 @@ export function useReports() {
 
   return {
     summary,
+    dependencias,
     areas,
     offices,
     devices,

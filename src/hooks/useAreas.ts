@@ -27,12 +27,12 @@ export function useAreas() {
     loadAreas();
   }, []);
 
-  const createArea = async (data: Partial<Area>) => {
+  const createArea = async (data: { name: string; dependenciaId?: string }) => {
     await areaService.create(data);
     await loadAreas();
   };
 
-  const updateArea = async (id: string, data: Partial<Area>) => {
+  const updateArea = async (id: string, data: { name?: string; dependenciaId?: string | null }) => {
     await areaService.update(id, data);
     await loadAreas();
   };

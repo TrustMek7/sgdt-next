@@ -8,8 +8,10 @@ import {
   MonitorSmartphone,
   Archive,
   Building2,
-  Map,
+  Layers,
+  Network,
   Tags,
+  Boxes,
   FileBarChart,
   LogOut } from
 'lucide-react';
@@ -17,41 +19,16 @@ import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 
 const navItems = [
-{
-  path: '/dashboard',
-  label: 'Dashboard',
-  icon: LayoutDashboard
-},
-{
-  path: '/devices',
-  label: 'Dispositivos',
-  icon: MonitorSmartphone
-},
-{
-  path: '/bajas',
-  label: 'Bajas',
-  icon: Archive
-},
-{
-  path: '/offices',
-  label: 'Oficinas',
-  icon: Building2
-},
-{
-  path: '/areas',
-  label: 'Áreas',
-  icon: Map
-},
-{
-  path: '/types',
-  label: 'Tipos (Leyenda)',
-  icon: Tags
-},
-{
-  path: '/reports',
-  label: 'Reportes',
-  icon: FileBarChart
-}] as const;
+  { path: '/dashboard',      label: 'Dashboard',          icon: LayoutDashboard },
+  { path: '/devices',        label: 'Dispositivos',        icon: MonitorSmartphone },
+  { path: '/bajas',          label: 'Bajas',               icon: Archive },
+  { path: '/offices',        label: 'Áreas',               icon: Building2 },
+  { path: '/areas',          label: 'Subgerencias',        icon: Layers },
+  { path: '/dependencias',   label: 'Dependencias',        icon: Network },
+  { path: '/types',          label: 'Tipos (Leyenda)',     icon: Tags },
+  { path: '/clasificaciones',label: 'Clasificaciones',     icon: Boxes },
+  { path: '/reports',        label: 'Reportes',            icon: FileBarChart },
+] as const;
 
 export function Sidebar() {
   const router = useRouter();
@@ -84,7 +61,7 @@ export function Sidebar() {
         {navItems.map((item) =>
         <Link
           key={item.path}
-          href={item.path}
+          href={item.path as any}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors ${pathname === item.path ? 'bg-accent text-white font-medium' : 'text-gray-300 hover:bg-white/10 hover:text-white'}`}
         >
             <item.icon className="w-5 h-5" />

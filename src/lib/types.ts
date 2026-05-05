@@ -1,9 +1,25 @@
 export type Status = 'New' | 'Transfer';
+export type Asignacion = 'asignado' | 'pendiente';
+
+export interface Dependencia {
+  id: string;
+  name: string;
+  description?: string;
+  subgerenciaCount: number;
+}
+
+export interface Clasificacion {
+  id: string;
+  name: string;
+  description?: string;
+  typeCount: number;
+}
 
 export interface Area {
   id: string;
   name: string;
   officeCount: number;
+  dependenciaId?: string;
 }
 
 export interface Office {
@@ -22,6 +38,7 @@ export interface DeviceType {
   brandModel: string;
   imageUrl?: string;
   isTransfer?: boolean;
+  clasificacionId?: string;
 }
 
 export interface Device {
@@ -34,6 +51,7 @@ export interface Device {
   destinationOfficeId: string;
   originOfficeId?: string;
   originOfficeDescription?: string;
+  asignacion: Asignacion;
 }
 
 export interface DeviceCreatePayload {
@@ -55,9 +73,10 @@ export interface DeviceCreateResponse {
 export interface DeviceUpdatePayload {
   inventoryCode?: string;
   typeId?: string;
-  destinationOfficeId?: string;
+  destinationOfficeId?: string | null;
   originOfficeId?: string;
   originOfficeDescription?: string;
+  asignacion?: Asignacion;
 }
 
 export interface PaginatedDevicesResponse {
@@ -68,6 +87,7 @@ export interface PaginatedDevicesResponse {
 }
 
 export interface ReportSummary {
+  dependencias: Dependencia[];
   areas: Area[];
   offices: Office[];
   deviceTypes: DeviceType[];
@@ -129,28 +149,26 @@ export interface AreaReportBajaRow {
 }
 
 export interface AreaReportItem {
-  area: {
-    id: string;
-    name: string;
-  };
+  area: { id: string; name: string };
   newDevices: AreaReportDeviceRow[];
   transferDevices: AreaReportDeviceRow[];
   bajas: AreaReportBajaRow[];
-  totals: {
-    newDevices: number;
-    transferDevices: number;
-    bajas: number;
-  };
+  totals: { newDevices: number; transferDevices: number; bajas: number };
 }
 
 export interface AreaReportResponse {
   reports: AreaReportItem[];
 }
 
+export type ReportGroupBy = 'area' | 'subgerencia' | 'dependencia' | 'piso';
+
 export interface ReportBatchFilter {
   floor?: number;
   areaId?: string;
+  dependenciaId?: string;
+  clasificacionId?: string;
   status?: 'Todos' | 'New' | 'Transfer';
+  groupBy?: ReportGroupBy;
   title?: string;
 }
 

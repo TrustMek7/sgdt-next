@@ -43,12 +43,15 @@ const S = StyleSheet.create({
   colChar:       { width: '22%' },
   colBrand:      { width: '18%' },
   colImg:        { width: '14%', borderRight: 0, alignItems: 'center', justifyContent: 'center' },
-
   colOrigin:     { width: '22%' },
 
-  colBajaCode:   { width: '16%' },
-  colBajaDesc:   { width: '50%' },
-  colBajaOrig:   { width: '34%', borderRight: 0 },
+  // Bajas – 6 columns
+  colBajaSub:    { width: '15%' },
+  colBajaCode:   { width: '12%' },
+  colBajaDesc:   { width: '28%' },
+  colBajaOfi:    { width: '15%' },
+  colBajaOrig:   { width: '15%' },
+  colBajaMotiv:  { width: '15%', borderRight: 0 },
 
   noData:        { padding: '6 8', color: '#999', fontSize: 8 },
   signatures:    { marginTop: 40, flexDirection: 'row', justifyContent: 'space-around' },
@@ -97,7 +100,9 @@ function buildAreaSections(report: ReportBatchItem): AreaSection[] {
     const areaOfficeIds = new Set(
       report.offices.filter((o) => o.areaId === area.id).map((o) => o.id),
     );
-    const areaDevices = report.devices.filter((d) => areaOfficeIds.has(d.destinationOfficeId));
+    const areaDevices = report.devices.filter(
+      (d) => d.asignacion === 'asignado' && areaOfficeIds.has(d.destinationOfficeId),
+    );
     const getType = (d: Device) => report.deviceTypes.find((t) => t.id === d.typeId)!;
 
     return {
@@ -152,7 +157,7 @@ function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: 
               </View>
             </View>
 
-            {/* Sections per area */}
+            {/* Sections per subgerencia */}
             {sections.map((section) => (
               <View key={section.areaId}>
                 <Text style={S.areaTitle}>{section.areaName}</Text>
@@ -164,12 +169,12 @@ function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: 
                 ) : (
                   <View style={S.table}>
                     <TableHeader cols={[
-                      { label: 'INVENTARIO', style: S.colCode },
-                      { label: 'PLAN',       style: S.colPlan },
-                      { label: 'DESCRIPCIÓN', style: S.colDesc },
+                      { label: 'INVENTARIO',    style: S.colCode },
+                      { label: 'PLAN',          style: S.colPlan },
+                      { label: 'DESCRIPCIÓN',   style: S.colDesc },
                       { label: 'CARACTERÍSTICAS', style: S.colChar },
                       { label: 'MARCA / MODELO', style: S.colBrand },
-                      { label: 'IMAGEN',     style: S.colImg },
+                      { label: 'IMAGEN',        style: S.colImg },
                     ]} />
                     {section.newDevices.map(({ device, type }, i) => (
                       <View key={i} style={S.row}>
@@ -191,12 +196,12 @@ function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: 
                 ) : (
                   <View style={S.table}>
                     <TableHeader cols={[
-                      { label: 'INVENTARIO', style: S.colCode },
-                      { label: 'PLAN',       style: S.colPlan },
-                      { label: 'DESCRIPCIÓN', style: S.colDesc },
-                      { label: 'ORIGEN',     style: S.colOrigin },
+                      { label: 'INVENTARIO',    style: S.colCode },
+                      { label: 'PLAN',          style: S.colPlan },
+                      { label: 'DESCRIPCIÓN',   style: S.colDesc },
+                      { label: 'ORIGEN',        style: S.colOrigin },
                       { label: 'MARCA / MODELO', style: S.colBrand },
-                      { label: 'IMAGEN',     style: S.colImg },
+                      { label: 'IMAGEN',        style: S.colImg },
                     ]} />
                     {section.transferDevices.map(({ device, type }, i) => (
                       <View key={i} style={S.row}>
@@ -211,22 +216,28 @@ function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: 
                   </View>
                 )}
 
-                {/* Table 3: Bajas */}
+                {/* Table 3: Bajas — 6 columns */}
                 <Text style={S.sectionTitle}>BAJAS ({section.bajas.length})</Text>
                 {section.bajas.length === 0 ? (
                   <Text style={S.noData}>Sin registros</Text>
                 ) : (
                   <View style={S.table}>
                     <TableHeader cols={[
-                      { label: 'INVENTARIO', style: S.colBajaCode },
-                      { label: 'DESCRIPCIÓN', style: S.colBajaDesc },
-                      { label: 'ORIGEN',     style: S.colBajaOrig },
+                      { label: 'SUBGERENCIA',  style: S.colBajaSub },
+                      { label: 'INVENTARIO',   style: S.colBajaCode },
+                      { label: 'DESCRIPCIÓN',  style: S.colBajaDesc },
+                      { label: 'OFICINA',      style: S.colBajaOfi },
+                      { label: 'ORIGEN',       style: S.colBajaOrig },
+                      { label: 'MOTIVO',       style: S.colBajaMotiv },
                     ]} />
                     {section.bajas.map((baja, i) => (
                       <View key={i} style={S.row}>
+                        <View style={[S.cell, S.colBajaSub]}><Text style={S.cellText}>{baja.areaName || section.areaName}</Text></View>
                         <View style={[S.cell, S.colBajaCode]}><Text style={S.cellText}>{baja.inventoryCode || 'S/C'}</Text></View>
                         <View style={[S.cell, S.colBajaDesc]}><Text style={S.cellText}>{baja.description}</Text></View>
-                        <View style={[S.cell, S.colBajaOrig]}><Text style={S.cellText}>{baja.areaName || baja.origin || '-'}</Text></View>
+                        <View style={[S.cell, S.colBajaOfi]}><Text style={S.cellText}>{baja.officeName || '-'}</Text></View>
+                        <View style={[S.cell, S.colBajaOrig]}><Text style={S.cellText}>{baja.origin || '-'}</Text></View>
+                        <View style={[S.cell, S.colBajaMotiv]}><Text style={S.cellText}>{baja.reason || '-'}</Text></View>
                       </View>
                     ))}
                   </View>
@@ -253,10 +264,14 @@ function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: 
 // ─── Page component ───────────────────────────────────────────────────────────
 
 export function Reports() {
-  const { areas, offices } = useReports();
-  const [floorFilter, setFloorFilter]   = useState('');
-  const [areaFilter, setAreaFilter]     = useState('');
-  const [statusFilter, setStatusFilter] = useState<'Todos' | 'New' | 'Transfer'>('Todos');
+  const { dependencias, areas, offices } = useReports();
+
+  // Cascading filter state
+  const [filterDepId, setFilterDepId]     = useState('');
+  const [filterAreaId, setFilterAreaId]   = useState('');
+  const [filterFloor, setFilterFloor]     = useState('');
+  const [statusFilter, setStatusFilter]   = useState<'Todos' | 'New' | 'Transfer'>('Todos');
+
   const [reportConfigs, setReportConfigs] = useState<ReportBatchFilter[]>([]);
   const [batchReports, setBatchReports]   = useState<ReportBatchItem[]>([]);
   const [isGenerating, setIsGenerating]   = useState(false);
@@ -264,32 +279,38 @@ export function Reports() {
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
-  const allFloors = Array.from(new Set(offices.map((o) => o.floor))).sort((a, b) => a - b);
-  const availableAreaIds = floorFilter
-    ? new Set(offices.filter((o) => o.floor.toString() === floorFilter).map((o) => o.areaId))
-    : new Set(areas.map((a) => a.id));
-  const filteredAreasForSelect = areas.filter((a) => availableAreaIds.has(a.id));
+  // Cascading: subgerencias filtered by dependencia
+  const filteredAreas = filterDepId
+    ? areas.filter((a) => a.dependenciaId === filterDepId)
+    : areas;
+
+  // Floors available given selected area/dependencia
+  const filteredOffices = offices.filter((o) => {
+    if (filterAreaId && o.areaId !== filterAreaId) return false;
+    if (filterDepId && !filteredAreas.some((a) => a.id === o.areaId)) return false;
+    return true;
+  });
+  const allFloors = Array.from(new Set(filteredOffices.map((o) => o.floor))).sort((a, b) => a - b);
 
   const currentFilter: ReportBatchFilter = {
-    floor:   floorFilter ? Number(floorFilter) : undefined,
-    areaId:  areaFilter || undefined,
-    status:  statusFilter,
+    dependenciaId: filterDepId || undefined,
+    areaId:        filterAreaId || undefined,
+    floor:         filterFloor ? Number(filterFloor) : undefined,
+    status:        statusFilter,
   };
 
   const describeFilter = (f: ReportBatchFilter) => {
     const parts: string[] = [];
-    if (f.floor)   parts.push(`Piso ${f.floor}`);
-    if (f.areaId)  parts.push(areas.find((a) => a.id === f.areaId)?.name || `Área ${f.areaId}`);
+    if (f.dependenciaId) parts.push(dependencias.find((d) => d.id === f.dependenciaId)?.name || `Dep ${f.dependenciaId}`);
+    if (f.areaId)        parts.push(areas.find((a) => a.id === f.areaId)?.name || `Sub ${f.areaId}`);
+    if (f.floor)         parts.push(`Piso ${f.floor}`);
     if (f.status && f.status !== 'Todos') parts.push(f.status === 'New' ? 'Nuevos' : 'Traslados');
     return parts.length > 0 ? parts.join(' / ') : 'Reporte general';
   };
 
   const addReportConfig = () => {
-    if (!floorFilter && !areaFilter && statusFilter === 'Todos') return;
-    setReportConfigs((prev) => [
-      ...prev,
-      { ...currentFilter, title: describeFilter(currentFilter) },
-    ]);
+    if (!filterDepId && !filterAreaId && !filterFloor && statusFilter === 'Todos') return;
+    setReportConfigs((prev) => [...prev, { ...currentFilter, title: describeFilter(currentFilter) }]);
     setShowPreview(false);
   };
 
@@ -312,8 +333,9 @@ export function Reports() {
     }
   };
 
-  const selectedAreaName = areas.find((a) => a.id === areaFilter)?.name;
-  const fileName = `Reporte_${reportConfigs.length > 1 ? 'Multiple' : selectedAreaName?.replace(/\s+/g, '_') || 'General'}.pdf`;
+  const selectedAreaName = areas.find((a) => a.id === filterAreaId)?.name;
+  const selectedDepName  = dependencias.find((d) => d.id === filterDepId)?.name;
+  const fileName = `Reporte_${reportConfigs.length > 1 ? 'Multiple' : (selectedAreaName || selectedDepName)?.replace(/\s+/g, '_') || 'General'}.pdf`;
 
   return (
     <div className="space-y-6">
@@ -323,20 +345,36 @@ export function Reports() {
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 space-y-4">
         <h2 className="text-lg font-medium text-gray-900">Configuración del Reporte</h2>
         <div className="flex flex-wrap gap-4 items-end">
-          <div className="w-32">
+          {/* Dependencia */}
+          <div className="w-44">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Dependencia</label>
+            <select className="input-field" value={filterDepId}
+              onChange={(e) => { setFilterDepId(e.target.value); setFilterAreaId(''); setFilterFloor(''); }}>
+              <option value="">Todas</option>
+              {dependencias.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+
+          {/* Subgerencia */}
+          <div className="flex-1 min-w-[180px]">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Subgerencia</label>
+            <select className="input-field" value={filterAreaId}
+              onChange={(e) => { setFilterAreaId(e.target.value); setFilterFloor(''); }}>
+              <option value="">Todas las subgerencias</option>
+              {filteredAreas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </div>
+
+          {/* Piso */}
+          <div className="w-28">
             <label className="block text-sm font-medium text-gray-700 mb-1">Piso</label>
-            <select className="input-field" value={floorFilter} onChange={(e) => { setFloorFilter(e.target.value); setAreaFilter(''); }}>
+            <select className="input-field" value={filterFloor} onChange={(e) => setFilterFloor(e.target.value)}>
               <option value="">Todos</option>
               {allFloors.map((f) => <option key={f} value={f}>Piso {f}</option>)}
             </select>
           </div>
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Área</label>
-            <select className="input-field" value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)}>
-              <option value="">Todas las áreas{floorFilter ? ` del Piso ${floorFilter}` : ''}</option>
-              {filteredAreasForSelect.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-          </div>
+
+          {/* Estado */}
           <div className="w-52">
             <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
             <div className="flex bg-gray-100 p-1 rounded-md">
@@ -348,6 +386,7 @@ export function Reports() {
               ))}
             </div>
           </div>
+
           <button onClick={addReportConfig} className="btn-secondary flex items-center gap-2 h-[38px]">
             <FileText className="w-4 h-4" /> Agregar
           </button>
@@ -406,7 +445,6 @@ export function Reports() {
                     <div key={section.areaId} className="p-6 border-b border-gray-100 last:border-0 space-y-4">
                       <h4 className="font-semibold text-gray-800">{section.areaName}</h4>
 
-                      {/* Nuevos */}
                       <PreviewTable
                         title={`Nuevos (${section.newDevices.length})`}
                         cols={['Inventario', 'Plan', 'Descripción', 'Características', 'Marca/Modelo', 'Imagen']}
@@ -420,7 +458,6 @@ export function Reports() {
                         ])}
                       />
 
-                      {/* Traslados */}
                       <PreviewTable
                         title={`Traslados (${section.transferDevices.length})`}
                         cols={['Inventario', 'Plan', 'Descripción', 'Origen', 'Marca/Modelo', 'Imagen']}
@@ -434,14 +471,16 @@ export function Reports() {
                         ])}
                       />
 
-                      {/* Bajas */}
                       <PreviewTable
                         title={`Bajas (${section.bajas.length})`}
-                        cols={['Inventario', 'Descripción', 'Origen']}
+                        cols={['Subgerencia', 'Inventario', 'Descripción', 'Oficina', 'Origen', 'Motivo']}
                         rows={section.bajas.map((b) => [
+                          b.areaName || section.areaName,
                           b.inventoryCode || 'S/C',
                           b.description,
-                          b.areaName || b.origin || '-',
+                          b.officeName || '-',
+                          b.origin || '-',
+                          b.reason || '-',
                         ])}
                       />
                     </div>
