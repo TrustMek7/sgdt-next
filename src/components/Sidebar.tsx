@@ -1,5 +1,8 @@
+'use client';
+
 import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   MonitorSmartphone,
@@ -15,13 +18,13 @@ import { useAuth } from '../contexts/AuthContext';
 
 const navItems = [
 {
-  path: '/',
+  path: '/dashboard',
   label: 'Dashboard',
   icon: LayoutDashboard
 },
 {
   path: '/devices',
-  label: 'Devices',
+  label: 'Dispositivos',
   icon: MonitorSmartphone
 },
 {
@@ -31,33 +34,34 @@ const navItems = [
 },
 {
   path: '/offices',
-  label: 'Offices',
+  label: 'Oficinas',
   icon: Building2
 },
 {
   path: '/areas',
-  label: 'Areas',
+  label: 'Áreas',
   icon: Map
 },
 {
   path: '/types',
-  label: 'Types (Leyenda)',
+  label: 'Tipos (Leyenda)',
   icon: Tags
 },
 {
   path: '/reports',
-  label: 'Reports',
+  label: 'Reportes',
   icon: FileBarChart
-}];
+}] as const;
 
 export function Sidebar() {
-  const navigate = useNavigate();
+  const router = useRouter();
+  const pathname = usePathname();
   const { logout, user } = useAuth();
 
   const handleLogout = () => {
     logout();
     toast.success('Sesión cerrada');
-    navigate('/login', { replace: true });
+    router.replace('/login');
   };
 
   return (
@@ -72,22 +76,20 @@ export function Sidebar() {
       {user && (
         <div className="px-6 py-4 border-b border-white/10 text-sm">
           <div className="text-gray-300">Conectado como</div>
-          <div className="font-semibold text-white">{user.username}</div>
+          <div className="font-semibold text-white">{user.name}</div>
         </div>
       )}
 
       <nav className="flex-1 py-6 px-3 space-y-1">
         {navItems.map((item) =>
-        <NavLink
+        <Link
           key={item.path}
-          to={item.path}
-          className={({ isActive }) =>
-          `flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors ${isActive ? 'bg-accent text-white font-medium' : 'text-gray-300 hover:bg-white/10 hover:text-white'}`
-          }>
-          
+          href={item.path}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors ${pathname === item.path ? 'bg-accent text-white font-medium' : 'text-gray-300 hover:bg-white/10 hover:text-white'}`}
+        >
             <item.icon className="w-5 h-5" />
             {item.label}
-          </NavLink>
+        </Link>
         )}
       </nav>
 
@@ -100,6 +102,7 @@ export function Sidebar() {
           Logout
         </button>
       </div>
-    </div>);
+    </div>
+  );
 
 }

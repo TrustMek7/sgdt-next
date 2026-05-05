@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { Edit, Trash2, Image as ImageIcon, Upload, AlertCircle } from 'lucide-react';
+'use client';
+
+import React, { useState } from 'react';
+import { Plus, Edit, Trash2, Image as ImageIcon, Upload, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { SidePanel } from '../components/SidePanel';
 import { Modal } from '../components/Modal';
@@ -28,6 +30,11 @@ export function DeviceTypes() {
       brandModel: '',
     });
     setCurrentType(null);
+  };
+
+  const openNewType = () => {
+    resetForm();
+    setIsPanelOpen(true);
   };
 
   const handleEdit = (type: DeviceType) => {
@@ -103,6 +110,9 @@ export function DeviceTypes() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Tipos de Dispositivos (Leyenda)</h1>
+        <button onClick={openNewType} className="btn-primary flex items-center gap-2">
+          <Plus className="w-4 h-4" /> Nuevo Tipo
+        </button>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
@@ -247,3 +257,5 @@ export function DeviceTypes() {
     </div>
   );
 }
+
+export default DeviceTypes;

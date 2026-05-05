@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { bajaService } from '../services/bajaService';
@@ -30,6 +32,11 @@ export function useBajas() {
     await loadBajas();
   };
 
+  const createBajas = async (items: BajaCreatePayload[]) => {
+    await bajaService.createBatch(items);
+    await loadBajas();
+  };
+
   const updateBaja = async (id: string, data: BajaUpdatePayload) => {
     await bajaService.update(id, data);
     await loadBajas();
@@ -40,5 +47,5 @@ export function useBajas() {
     await loadBajas();
   };
 
-  return { bajas, loading, reload: loadBajas, createBaja, updateBaja, deleteBaja };
+  return { bajas, loading, reload: loadBajas, createBaja, createBajas, updateBaja, deleteBaja };
 }

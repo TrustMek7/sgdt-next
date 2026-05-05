@@ -1,5 +1,7 @@
-import React from 'react';
-import { Navigate } from 'react-router-dom';
+'use client';
+
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 
 interface PrivateRouteProps {
@@ -7,7 +9,14 @@ interface PrivateRouteProps {
 }
 
 export function PrivateRoute({ children }: PrivateRouteProps) {
+  const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, loading, router]);
 
   if (loading) {
     return (
@@ -21,7 +30,7 @@ export function PrivateRoute({ children }: PrivateRouteProps) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return null;
   }
 
   return <>{children}</>;

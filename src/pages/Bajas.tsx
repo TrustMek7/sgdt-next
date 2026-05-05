@@ -1,19 +1,27 @@
+'use client';
+
 import React, { useMemo, useState } from 'react';
-import { Plus, Edit, Trash2, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, AlertCircle, ListPlus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '../components/Modal';
-import { Area, Baja } from '../lib/types';
+import { Baja } from '../lib/types';
 import { useAreas } from '../hooks/useAreas';
 import { useBajas } from '../hooks/useBajas';
 
+interface BulkRow {
+  inventoryCode: string;
+  description: string;
+}
+
+const emptyRow = (): BulkRow => ({ inventoryCode: '', description: '' });
+
 export function Bajas() {
   const { areas, loading: areasLoading } = useAreas();
-  const { bajas, loading, createBaja, updateBaja, deleteBaja } = useBajas();
+  const { bajas, loading, createBaja, createBajas, updateBaja, deleteBaja } = useBajas();
+
+  // Single baja modal
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [editingBaja, setEditingBaja] = useState<Baja | null>(null);
-  const [bajaToDelete, setBajaToDelete] = useState<Baja | null>(null);
-  const [areaFilter, setAreaFilter] = useState('');
   const [formData, setFormData] = useState({
     areaId: '',
     inventoryCode: '',
@@ -24,10 +32,25 @@ export function Bajas() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Bulk baja modal
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [bulkAreaId, setBulkAreaId] = useState('');
+  const [bulkRows, setBulkRows] = useState<BulkRow[]>([emptyRow()]);
+  const [bulkErrors, setBulkErrors] = useState<Record<string, string>>({});
+
+  // Delete confirm modal
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [bajaToDelete, setBajaToDelete] = useState<Baja | null>(null);
+
+  // Filter
+  const [areaFilter, setAreaFilter] = useState('');
+
   const filteredBajas = useMemo(
     () => bajas.filter((baja) => (areaFilter ? baja.areaId === areaFilter : true)),
     [bajas, areaFilter],
   );
+
+  // ── Single modal helpers ───────────────────────────────────────────────────
 
   const resetForm = () => {
     setFormData({ areaId: '', inventoryCode: '', description: '', officeName: '', origin: '', reason: '' });
@@ -58,11 +81,7 @@ export function Bajas() {
     const nextErrors: Record<string, string> = {};
     if (!formData.areaId) nextErrors.areaId = 'Área es requerida';
     if (!formData.description.trim()) nextErrors.description = 'Descripción es requerida';
-
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors);
-      return;
-    }
+    if (Object.keys(nextErrors).length > 0) { setErrors(nextErrors); return; }
 
     try {
       if (editingBaja) {
@@ -94,6 +113,56 @@ export function Bajas() {
     }
   };
 
+  // ── Bulk modal helpers ─────────────────────────────────────────────────────
+
+  const openBulkModal = () => {
+    setBulkAreaId('');
+    setBulkRows([emptyRow()]);
+    setBulkErrors({});
+    setIsBulkModalOpen(true);
+  };
+
+  const updateBulkRow = (index: number, field: keyof BulkRow, value: string) => {
+    setBulkRows((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+  };
+
+  const addBulkRow = () => setBulkRows((prev) => [...prev, emptyRow()]);
+
+  const removeBulkRow = (index: number) => {
+    if (bulkRows.length === 1) return;
+    setBulkRows((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleBulkSave = async () => {
+    const nextErrors: Record<string, string> = {};
+    if (!bulkAreaId) nextErrors.areaId = 'Área es requerida';
+
+    const validRows = bulkRows.filter((r) => r.description.trim());
+    if (validRows.length === 0) nextErrors.rows = 'Al menos un ítem debe tener descripción';
+
+    if (Object.keys(nextErrors).length > 0) { setBulkErrors(nextErrors); return; }
+
+    const areaName = areas.find((a) => a.id === bulkAreaId)?.name ?? '';
+
+    try {
+      await createBajas(
+        validRows.map((row) => ({
+          areaId: bulkAreaId,
+          codigoInventario: row.inventoryCode || undefined,
+          descripcion: row.description,
+          origen: areaName || undefined,
+        })),
+      );
+      toast.success(`${validRows.length} baja${validRows.length > 1 ? 's' : ''} registrada${validRows.length > 1 ? 's' : ''}`);
+      setIsBulkModalOpen(false);
+    } catch (error) {
+      console.error('Error saving bajas', error);
+      toast.error('No se pudo guardar las bajas');
+    }
+  };
+
+  // ── Delete helpers ─────────────────────────────────────────────────────────
+
   const handleDeleteConfirm = async () => {
     if (!bajaToDelete) return;
     try {
@@ -113,18 +182,21 @@ export function Bajas() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Bajas</h1>
-        <button onClick={openNewBaja} className="btn-primary flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Nueva Baja
-        </button>
+        <div className="flex gap-2">
+          <button onClick={openBulkModal} className="btn-secondary flex items-center gap-2">
+            <ListPlus className="w-4 h-4" /> Baja Múltiple
+          </button>
+          <button onClick={openNewBaja} className="btn-primary flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Nueva Baja
+          </button>
+        </div>
       </div>
 
       <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex flex-wrap gap-4 items-center">
         <select className="input-field w-64" value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)}>
           <option value="">Todas las áreas</option>
           {areas.map((area) => (
-            <option key={area.id} value={area.id}>
-              {area.name}
-            </option>
+            <option key={area.id} value={area.id}>{area.name}</option>
           ))}
         </select>
       </div>
@@ -176,15 +248,14 @@ export function Bajas() {
         </div>
       </div>
 
+      {/* Single baja modal */}
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); resetForm(); }} title={editingBaja ? 'Editar Baja' : 'Nueva Baja'}>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Área *</label>
             <select value={formData.areaId} onChange={(e) => setFormData({ ...formData, areaId: e.target.value })} className={`input-field ${errors.areaId ? 'border-red-500' : ''}`} disabled={areasLoading}>
               <option value="">Seleccionar área...</option>
-              {areas.map((area) => (
-                <option key={area.id} value={area.id}>{area.name}</option>
-              ))}
+              {areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}
             </select>
             {errors.areaId && <p className="text-red-500 text-sm mt-1">{errors.areaId}</p>}
           </div>
@@ -220,6 +291,81 @@ export function Bajas() {
         </div>
       </Modal>
 
+      {/* Bulk baja modal */}
+      <Modal isOpen={isBulkModalOpen} onClose={() => setIsBulkModalOpen(false)} title="Baja Múltiple">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Área (origen) *</label>
+            <select
+              value={bulkAreaId}
+              onChange={(e) => { setBulkAreaId(e.target.value); setBulkErrors({}); }}
+              className={`input-field ${bulkErrors.areaId ? 'border-red-500' : ''}`}
+              disabled={areasLoading}
+            >
+              <option value="">Seleccionar área...</option>
+              {areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}
+            </select>
+            {bulkErrors.areaId && <p className="text-red-500 text-sm mt-1">{bulkErrors.areaId}</p>}
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium text-gray-700">Ítems a dar de baja</label>
+              <button
+                type="button"
+                onClick={addBulkRow}
+                className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                <Plus className="w-3.5 h-3.5" /> Agregar ítem
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {bulkRows.map((row, index) => (
+                <div key={index} className="flex gap-2 items-start">
+                  <div className="w-7 pt-2 text-xs text-gray-400 text-center flex-shrink-0">{index + 1}</div>
+                  <input
+                    type="text"
+                    value={row.inventoryCode}
+                    onChange={(e) => updateBulkRow(index, 'inventoryCode', e.target.value)}
+                    className="input-field w-32 flex-shrink-0"
+                    placeholder="Cód. inv."
+                  />
+                  <input
+                    type="text"
+                    value={row.description}
+                    onChange={(e) => updateBulkRow(index, 'description', e.target.value)}
+                    className="input-field flex-1"
+                    placeholder="Descripción del bien *"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeBulkRow(index)}
+                    className="mt-2 p-1 text-gray-400 hover:text-red-500 transition flex-shrink-0"
+                    disabled={bulkRows.length === 1}
+                    title="Eliminar fila"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            {bulkErrors.rows && <p className="text-red-500 text-sm mt-1">{bulkErrors.rows}</p>}
+            <p className="text-xs text-gray-400 mt-2">El área seleccionada se usará automáticamente como origen de cada ítem.</p>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button onClick={handleBulkSave} className="flex-1 bg-blue-600 text-white font-medium py-2 rounded-lg hover:bg-blue-700 transition">
+              Registrar bajas
+            </button>
+            <button onClick={() => setIsBulkModalOpen(false)} className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg hover:bg-gray-50 transition">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete confirm modal */}
       <Modal isOpen={isDeleteConfirmOpen} onClose={() => setIsDeleteConfirmOpen(false)} title="Confirmar Eliminación">
         <div className="space-y-4">
           <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -239,3 +385,5 @@ export function Bajas() {
     </div>
   );
 }
+
+export default Bajas;

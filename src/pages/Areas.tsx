@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+'use client';
+
+import React, { useState } from 'react';
 import { Plus, Edit, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '../components/Modal';
@@ -59,7 +61,7 @@ export function Areas() {
   const handleDeleteConfirm = () => {
     if (!areaToDelete) return;
 
-    if (areaToDelete.officeCount && areaToDelete.officeCount > 0) {
+    if ((areaToDelete.officeCount ?? 0) > 0) {
       toast.error('No se puede eliminar un área con oficinas asignadas');
       setIsDeleteConfirmOpen(false);
       return;
@@ -170,8 +172,8 @@ export function Areas() {
             <div>
               <p className="font-semibold text-red-900">¿Eliminar área?</p>
               {areaToDelete && <p className="text-sm text-red-700 mt-1">{areaToDelete.name}</p>}
-              {areaToDelete?.officeCount && areaToDelete.officeCount > 0 && (
-                <p className="text-sm text-red-700 mt-2">Esta área tiene {areaToDelete.officeCount} oficina(s) asignada(s). No se puede eliminar.</p>
+              {(areaToDelete?.officeCount ?? 0) > 0 && (
+                 <p className="text-sm text-red-700 mt-2">Esta área tiene {areaToDelete?.officeCount ?? 0} oficina(s) asignada(s). No se puede eliminar.</p>
               )}
             </div>
           </div>
@@ -179,7 +181,7 @@ export function Areas() {
           <div className="flex gap-3">
             <button
               onClick={handleDeleteConfirm}
-              disabled={areaToDelete?.officeCount && areaToDelete.officeCount > 0}
+              disabled={(areaToDelete?.officeCount ?? 0) > 0}
               className="flex-1 bg-red-600 text-white font-medium py-2 rounded-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Eliminar
@@ -193,3 +195,5 @@ export function Areas() {
     </div>
   );
 }
+
+export default Areas;

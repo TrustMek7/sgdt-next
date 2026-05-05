@@ -1,12 +1,13 @@
+'use client';
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { clearSession, getToken, setToken } from '../lib/auth';
-import { getProfile, login as apiLogin } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 interface User {
-  id: number;
+  id: string | number;
   email: string;
-  name: string;
-  role: string;
+  name?: string;
+  role?: string;
 }
 
 interface AuthContextType {
@@ -14,8 +15,8 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
-  checkAuth: () => void;
+  logout: () => Promise<void>;
+  checkAuth: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,50 +26,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Verificar autenticación al cargar la app
   useEffect(() => {
+    // on mount, check existing session
     checkAuth();
-  }, []);
 
-  const checkAuth = async () => {
-    const token = getToken();
-    if (token) {
-      try {
-        const profile = await getProfile();
+    // listen for auth changes (login/logout)
+    const { data: listener } = supabase?.auth.onAuthStateChange((_, session) => {
+      if (session?.user) {
+        const u = session.user;
         setIsAuthenticated(true);
-        setUser({
-          id: profile.user.userId,
-          email: profile.user.email,
-          name: profile.user.email,
-          role: 'user',
-        });
-      } catch {
-        clearSession();
+        setUser({ id: u.id, email: u.email ?? '', name: u.user_metadata?.name });
+      } else {
         setIsAuthenticated(false);
         setUser(null);
       }
-    } else {
-      setIsAuthenticated(false);
-      setUser(null);
-    }
-    setLoading(false);
-  };
+    }) ?? { data: null };
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+    return () => {
+      if (listener && typeof listener.subscription?.unsubscribe === 'function') {
+        listener.subscription.unsubscribe();
+      }
+    };
+  }, []);
+
+  const checkAuth = async () => {
     setLoading(true);
     try {
-      const response = await apiLogin(email, password);
-      setToken(response.access_token);
-      setIsAuthenticated(true);
-      setUser(response.user);
-      return true;
+      const { data } = await supabase!.auth.getSession();
+      const session = data.session;
+      if (session?.user) {
+        const u = session.user;
+        setIsAuthenticated(true);
+        setUser({ id: u.id, email: u.email ?? '', name: u.user_metadata?.name });
+      } else {
+        setIsAuthenticated(false);
+        setUser(null);
+      }
+    } catch (err) {
+      setIsAuthenticated(false);
+      setUser(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const logout = () => {
-    clearSession();
+  const login = async (email: string, password: string): Promise<boolean> => {
+    setLoading(true);
+    try {
+      const result = await supabase!.auth.signInWithPassword({ email, password });
+      if (result.error) {
+        return false;
+      }
+      if (result.data.session?.user) {
+        const u = result.data.session.user;
+        setIsAuthenticated(true);
+        setUser({ id: u.id, email: u.email ?? '', name: u.user_metadata?.name });
+        return true;
+      }
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    await supabase!.auth.signOut();
     setIsAuthenticated(false);
     setUser(null);
   };

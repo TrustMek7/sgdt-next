@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+'use client';
+
+import React, { useMemo, useState } from 'react';
 import { Plus, Search, Edit, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '../components/Badge';
 import { Modal } from '../components/Modal';
-import { Device, DeviceCreatePayload, DeviceType, Office, DeviceUpdatePayload } from '../lib/types';
+import { Device, DeviceCreatePayload, DeviceUpdatePayload } from '../lib/types';
 import { useDevices } from '../hooks/useDevices';
 
 export function Devices() {
@@ -527,3 +529,5 @@ export function Devices() {
     </div>
   );
 }
+
+export default Devices;

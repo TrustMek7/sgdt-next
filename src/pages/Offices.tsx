@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+'use client';
+
+import React, { useMemo, useState } from 'react';
 import { Plus, Edit, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '../components/Modal';
-import { Area, Office } from '../lib/types';
+import { Office } from '../lib/types';
 import { useOffices } from '../hooks/useOffices';
 
 export function Offices() {
@@ -87,7 +89,7 @@ export function Offices() {
   const handleDeleteConfirm = () => {
     if (!officeToDelete) return;
 
-    if (officeToDelete.deviceCount && officeToDelete.deviceCount > 0) {
+    if ((officeToDelete.deviceCount ?? 0) > 0) {
       toast.error('No se puede eliminar una oficina con dispositivos asignados');
       setIsDeleteConfirmOpen(false);
       return;
@@ -255,8 +257,8 @@ export function Offices() {
             <div>
               <p className="font-semibold text-red-900">¿Eliminar oficina?</p>
               {officeToDelete && <p className="text-sm text-red-700 mt-1">{officeToDelete.name} - Piso {officeToDelete.floor}</p>}
-              {officeToDelete?.deviceCount && officeToDelete.deviceCount > 0 && (
-                <p className="text-sm text-red-700 mt-2">Esta oficina tiene {officeToDelete.deviceCount} dispositivo(s). No se puede eliminar.</p>
+              {(officeToDelete?.deviceCount ?? 0) > 0 && (
+                 <p className="text-sm text-red-700 mt-2">Esta oficina tiene {officeToDelete?.deviceCount ?? 0} dispositivo(s). No se puede eliminar.</p>
               )}
             </div>
           </div>
@@ -264,7 +266,7 @@ export function Offices() {
           <div className="flex gap-3">
             <button
               onClick={handleDeleteConfirm}
-              disabled={officeToDelete?.deviceCount && officeToDelete.deviceCount > 0}
+              disabled={(officeToDelete?.deviceCount ?? 0) > 0}
               className="flex-1 bg-red-600 text-white font-medium py-2 rounded-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Eliminar
@@ -278,3 +280,5 @@ export function Offices() {
     </div>
   );
 }
+
+export default Offices;

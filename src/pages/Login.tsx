@@ -1,7 +1,10 @@
+'use client';
+
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Lock, User, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { AppProviders } from '../components/AppProviders';
 import { useAuth } from '../contexts/AuthContext';
 
 export function Login() {
@@ -9,7 +12,7 @@ export function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
+  const router = useRouter();
   const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,7 +29,7 @@ export function Login() {
       const success = await login(email, password);
       if (success) {
         toast.success(`¡Bienvenido ${email}!`);
-        navigate('/', { replace: true });
+        router.replace('/dashboard');
       } else {
         setError('Credenciales incorrectas');
         toast.error('Credenciales inválidas');
@@ -143,5 +146,13 @@ export function Login() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <AppProviders>
+      <Login />
+    </AppProviders>
   );
 }

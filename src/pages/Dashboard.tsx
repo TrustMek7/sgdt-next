@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+'use client';
+
+import React from 'react';
 import {
   Monitor,
   PlusCircle,
@@ -125,3 +127,5 @@ export function Dashboard() {
     </div>
   );
 }
+
+export default Dashboard;

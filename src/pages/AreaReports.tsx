@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, RefreshCw, FileText } from 'lucide-react';
 import { toast } from 'sonner';
@@ -14,7 +16,6 @@ export function AreaReports() {
   const [reports, setReports] = useState<AreaReportItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isQuickBajaOpen, setIsQuickBajaOpen] = useState(false);
-  const [quickBajaAreaId, setQuickBajaAreaId] = useState('');
   const [quickBajaForm, setQuickBajaForm] = useState({
     areaId: '',
     inventoryCode: '',
@@ -46,7 +47,6 @@ export function AreaReports() {
   const reportCount = useMemo(() => reports.length, [reports]);
 
   const openQuickBaja = (areaId?: string) => {
-    setQuickBajaAreaId(areaId || selectedAreaId || '');
     setQuickBajaForm({
       areaId: areaId || selectedAreaId || '',
       inventoryCode: '',
@@ -270,7 +270,9 @@ export function AreaReports() {
   );
 }
 
-function ReportTable<T extends Record<string, string>>({
+export default AreaReports;
+
+function ReportTable<T extends object>({
   title,
   columns,
   rows,
