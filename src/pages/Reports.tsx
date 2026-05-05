@@ -60,7 +60,7 @@ const S = StyleSheet.create({
 
 // ─── PDF helpers ─────────────────────────────────────────────────────────────
 
-function TableHeader({ cols }: { cols: { label: string; style: object }[] }) {
+function TableHeader({ cols }: { cols: { label: string; style?: any }[] }) {
   return (
     <View style={S.headerRow}>
       {cols.map((c, i) => (
