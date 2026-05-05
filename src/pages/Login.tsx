@@ -105,14 +105,6 @@ export function Login() {
               </div>
             </div>
 
-            {/* Demo Credentials */}
-            <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700 border border-blue-200">
-              <strong>Credenciales de prueba:</strong>
-              <div className="mt-1 font-mono text-xs">
-                <div>admin@sgdt.local / Admin123!@#</div>
-              </div>
-            </div>
-
             {/* Submit Button */}
             <button
               type="submit"
