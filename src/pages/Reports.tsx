@@ -84,11 +84,13 @@ function TableHeader({ cols }: { cols: { label: string; style?: any }[] }) {
 // Renders a table split into chunks so the header repeats on every new page.
 // Each chunk is its own mini-table; borderTop is removed on chunks after the
 // first so they visually read as one continuous table.
+// rowsPerPage=7: matches ~7 rows visible on page 1 of landscape A4 after
+// the report header + summary box + section titles consume ~152pt of height.
 function PaginatedTable({
   cols,
   rows,
   renderRow,
-  rowsPerPage = 15,
+  rowsPerPage = 7,
 }: {
   cols: { label: string; style?: any }[];
   rows: any[];
@@ -266,7 +268,7 @@ function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: 
                       { label: 'MOTIVO',      style: S.colBajaMotiv },
                     ]}
                     rows={section.bajas}
-                    rowsPerPage={18}
+                    rowsPerPage={10}
                     renderRow={(baja: Baja) => (<>
                       <View style={[S.cell, S.colBajaSub]}><Text style={S.cellText}>{baja.areaName || section.areaName}</Text></View>
                       <View style={[S.cell, S.colBajaCode]}><Text style={S.cellText}>{baja.inventoryCode || 'S/C'}</Text></View>
