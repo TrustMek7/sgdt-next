@@ -65,7 +65,7 @@ const S = StyleSheet.create({
 
 function TableHeader({ cols }: { cols: { label: string; style?: any }[] }) {
   return (
-    <View style={S.headerRow}>
+    <View style={S.headerRow} minPresenceAhead={60}>
       {cols.map((c, i) => (
         <View key={i} style={[S.cell, c.style]}>
           <Text style={S.headerText}>{c.label}</Text>
@@ -177,7 +177,7 @@ function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: 
                       { label: 'IMAGEN',        style: S.colImg },
                     ]} />
                     {section.newDevices.map(({ device, type }, i) => (
-                      <View key={i} style={S.row}>
+                      <View key={i} style={S.row} wrap={false}>
                         <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
                         <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
                         <View style={[S.cell, S.colDesc]}><Text style={S.cellText}>{type.description}</Text></View>
@@ -204,7 +204,7 @@ function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: 
                       { label: 'IMAGEN',        style: S.colImg },
                     ]} />
                     {section.transferDevices.map(({ device, type }, i) => (
-                      <View key={i} style={S.row}>
+                      <View key={i} style={S.row} wrap={false}>
                         <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
                         <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
                         <View style={[S.cell, S.colDesc]}><Text style={S.cellText}>{type.description}</Text></View>
@@ -231,7 +231,7 @@ function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: 
                       { label: 'MOTIVO',       style: S.colBajaMotiv },
                     ]} />
                     {section.bajas.map((baja, i) => (
-                      <View key={i} style={S.row}>
+                      <View key={i} style={S.row} wrap={false}>
                         <View style={[S.cell, S.colBajaSub]}><Text style={S.cellText}>{baja.areaName || section.areaName}</Text></View>
                         <View style={[S.cell, S.colBajaCode]}><Text style={S.cellText}>{baja.inventoryCode || 'S/C'}</Text></View>
                         <View style={[S.cell, S.colBajaDesc]}><Text style={S.cellText}>{baja.description}</Text></View>
