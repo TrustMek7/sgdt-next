@@ -63,6 +63,12 @@ const S = StyleSheet.create({
 
 // ─── PDF helpers ─────────────────────────────────────────────────────────────
 
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
 function TableHeader({ cols }: { cols: { label: string; style?: any }[] }) {
   return (
     <View style={S.headerRow} minPresenceAhead={60}>
@@ -72,6 +78,37 @@ function TableHeader({ cols }: { cols: { label: string; style?: any }[] }) {
         </View>
       ))}
     </View>
+  );
+}
+
+// Renders a table split into chunks so the header repeats on every new page.
+// Each chunk is its own mini-table; borderTop is removed on chunks after the
+// first so they visually read as one continuous table.
+function PaginatedTable({
+  cols,
+  rows,
+  renderRow,
+  rowsPerPage = 15,
+}: {
+  cols: { label: string; style?: any }[];
+  rows: any[];
+  renderRow: (row: any, i: number) => React.ReactNode;
+  rowsPerPage?: number;
+}) {
+  const chunks = chunk(rows, rowsPerPage);
+  return (
+    <>
+      {chunks.map((c, ci) => (
+        <View key={ci} style={[S.table, ci > 0 ? { borderTop: 0, marginTop: 0, marginBottom: 6 } : {}]}>
+          <TableHeader cols={cols} />
+          {c.map((row, ri) => (
+            <View key={ri} style={S.row} wrap={false}>
+              {renderRow(row, ri)}
+            </View>
+          ))}
+        </View>
+      ))}
+    </>
   );
 }
 
@@ -167,26 +204,25 @@ function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: 
                 {section.newDevices.length === 0 ? (
                   <Text style={S.noData}>Sin registros</Text>
                 ) : (
-                  <View style={S.table}>
-                    <TableHeader cols={[
-                      { label: 'INVENTARIO',    style: S.colCode },
-                      { label: 'PLAN',          style: S.colPlan },
-                      { label: 'DESCRIPCIÓN',   style: S.colDesc },
+                  <PaginatedTable
+                    cols={[
+                      { label: 'INVENTARIO',      style: S.colCode },
+                      { label: 'PLAN',            style: S.colPlan },
+                      { label: 'DESCRIPCIÓN',     style: S.colDesc },
                       { label: 'CARACTERÍSTICAS', style: S.colChar },
-                      { label: 'MARCA / MODELO', style: S.colBrand },
-                      { label: 'IMAGEN',        style: S.colImg },
-                    ]} />
-                    {section.newDevices.map(({ device, type }, i) => (
-                      <View key={i} style={S.row} wrap={false}>
-                        <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
-                        <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
-                        <View style={[S.cell, S.colDesc]}><Text style={S.cellText}>{type.description}</Text></View>
-                        <View style={[S.cell, S.colChar]}><Text style={S.cellText}>{type.characteristics || '-'}</Text></View>
-                        <View style={[S.cell, S.colBrand]}><Text style={S.cellText}>{type.brandModel || '-'}</Text></View>
-                        <DeviceImageCell url={type.imageUrl} baseUrl={baseUrl} />
-                      </View>
-                    ))}
-                  </View>
+                      { label: 'MARCA / MODELO',  style: S.colBrand },
+                      { label: 'IMAGEN',          style: S.colImg },
+                    ]}
+                    rows={section.newDevices}
+                    renderRow={({ device, type }: { device: Device; type: DeviceType }) => (<>
+                      <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
+                      <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
+                      <View style={[S.cell, S.colDesc]}><Text style={S.cellText}>{type.description}</Text></View>
+                      <View style={[S.cell, S.colChar]}><Text style={S.cellText}>{type.characteristics || '-'}</Text></View>
+                      <View style={[S.cell, S.colBrand]}><Text style={S.cellText}>{type.brandModel || '-'}</Text></View>
+                      <DeviceImageCell url={type.imageUrl} baseUrl={baseUrl} />
+                    </>)}
+                  />
                 )}
 
                 {/* Table 2: Traslados */}
@@ -194,26 +230,25 @@ function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: 
                 {section.transferDevices.length === 0 ? (
                   <Text style={S.noData}>Sin registros</Text>
                 ) : (
-                  <View style={S.table}>
-                    <TableHeader cols={[
-                      { label: 'INVENTARIO',    style: S.colCode },
-                      { label: 'PLAN',          style: S.colPlan },
-                      { label: 'DESCRIPCIÓN',   style: S.colDesc },
-                      { label: 'ORIGEN',        style: S.colOrigin },
+                  <PaginatedTable
+                    cols={[
+                      { label: 'INVENTARIO',     style: S.colCode },
+                      { label: 'PLAN',           style: S.colPlan },
+                      { label: 'DESCRIPCIÓN',    style: S.colDesc },
+                      { label: 'ORIGEN',         style: S.colOrigin },
                       { label: 'MARCA / MODELO', style: S.colBrand },
-                      { label: 'IMAGEN',        style: S.colImg },
-                    ]} />
-                    {section.transferDevices.map(({ device, type }, i) => (
-                      <View key={i} style={S.row} wrap={false}>
-                        <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
-                        <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
-                        <View style={[S.cell, S.colDesc]}><Text style={S.cellText}>{type.description}</Text></View>
-                        <View style={[S.cell, S.colOrigin]}><Text style={S.cellText}>{device.originOfficeDescription || '-'}</Text></View>
-                        <View style={[S.cell, S.colBrand]}><Text style={S.cellText}>{type.brandModel || '-'}</Text></View>
-                        <DeviceImageCell url={type.imageUrl} baseUrl={baseUrl} />
-                      </View>
-                    ))}
-                  </View>
+                      { label: 'IMAGEN',         style: S.colImg },
+                    ]}
+                    rows={section.transferDevices}
+                    renderRow={({ device, type }: { device: Device; type: DeviceType }) => (<>
+                      <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
+                      <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
+                      <View style={[S.cell, S.colDesc]}><Text style={S.cellText}>{type.description}</Text></View>
+                      <View style={[S.cell, S.colOrigin]}><Text style={S.cellText}>{device.originOfficeDescription || '-'}</Text></View>
+                      <View style={[S.cell, S.colBrand]}><Text style={S.cellText}>{type.brandModel || '-'}</Text></View>
+                      <DeviceImageCell url={type.imageUrl} baseUrl={baseUrl} />
+                    </>)}
+                  />
                 )}
 
                 {/* Table 3: Bajas — 6 columns */}
@@ -221,26 +256,26 @@ function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: 
                 {section.bajas.length === 0 ? (
                   <Text style={S.noData}>Sin registros</Text>
                 ) : (
-                  <View style={S.table}>
-                    <TableHeader cols={[
-                      { label: 'SUBGERENCIA',  style: S.colBajaSub },
-                      { label: 'INVENTARIO',   style: S.colBajaCode },
-                      { label: 'DESCRIPCIÓN',  style: S.colBajaDesc },
-                      { label: 'OFICINA',      style: S.colBajaOfi },
-                      { label: 'ORIGEN',       style: S.colBajaOrig },
-                      { label: 'MOTIVO',       style: S.colBajaMotiv },
-                    ]} />
-                    {section.bajas.map((baja, i) => (
-                      <View key={i} style={S.row} wrap={false}>
-                        <View style={[S.cell, S.colBajaSub]}><Text style={S.cellText}>{baja.areaName || section.areaName}</Text></View>
-                        <View style={[S.cell, S.colBajaCode]}><Text style={S.cellText}>{baja.inventoryCode || 'S/C'}</Text></View>
-                        <View style={[S.cell, S.colBajaDesc]}><Text style={S.cellText}>{baja.description}</Text></View>
-                        <View style={[S.cell, S.colBajaOfi]}><Text style={S.cellText}>{baja.officeName || '-'}</Text></View>
-                        <View style={[S.cell, S.colBajaOrig]}><Text style={S.cellText}>{baja.origin || '-'}</Text></View>
-                        <View style={[S.cell, S.colBajaMotiv]}><Text style={S.cellText}>{baja.reason || '-'}</Text></View>
-                      </View>
-                    ))}
-                  </View>
+                  <PaginatedTable
+                    cols={[
+                      { label: 'SUBGERENCIA', style: S.colBajaSub  },
+                      { label: 'INVENTARIO',  style: S.colBajaCode },
+                      { label: 'DESCRIPCIÓN', style: S.colBajaDesc },
+                      { label: 'OFICINA',     style: S.colBajaOfi  },
+                      { label: 'ORIGEN',      style: S.colBajaOrig },
+                      { label: 'MOTIVO',      style: S.colBajaMotiv },
+                    ]}
+                    rows={section.bajas}
+                    rowsPerPage={18}
+                    renderRow={(baja: Baja) => (<>
+                      <View style={[S.cell, S.colBajaSub]}><Text style={S.cellText}>{baja.areaName || section.areaName}</Text></View>
+                      <View style={[S.cell, S.colBajaCode]}><Text style={S.cellText}>{baja.inventoryCode || 'S/C'}</Text></View>
+                      <View style={[S.cell, S.colBajaDesc]}><Text style={S.cellText}>{baja.description}</Text></View>
+                      <View style={[S.cell, S.colBajaOfi]}><Text style={S.cellText}>{baja.officeName || '-'}</Text></View>
+                      <View style={[S.cell, S.colBajaOrig]}><Text style={S.cellText}>{baja.origin || '-'}</Text></View>
+                      <View style={[S.cell, S.colBajaMotiv]}><Text style={S.cellText}>{baja.reason || '-'}</Text></View>
+                    </>)}
+                  />
                 )}
               </View>
             ))}
