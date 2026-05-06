@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createDevice, getDevicesList } from '@/lib/api';
+import { createDevice, getDevicesPage } from '@/lib/api';
 
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const page = Number(url.searchParams.get('page') ?? '1');
     const limit = Number(url.searchParams.get('limit') ?? '10');
-    return NextResponse.json(await getDevicesList(page, limit));
+    const result = await getDevicesPage(page, limit);
+    return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudieron obtener los dispositivos';
     return NextResponse.json({ message }, { status: 400 });

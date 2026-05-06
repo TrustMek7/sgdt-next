@@ -532,6 +532,25 @@ export const getDevicesList = async (): Promise<Device[]> => {
   return baseData.devices;
 };
 
+export const getDevicesPage = async (page = 1, limit = 10): Promise<{ data: Device[]; total: number; page: number; limit: number }> => {
+  const from = (Math.max(page, 1) - 1) * Math.max(limit, 1);
+  const to = from + Math.max(limit, 1) - 1;
+  const { data: rows, error, count } = await supabase!.from('dispositivo').select('*', { count: 'exact' }).range(from, to);
+  if (error) throw error;
+  const baseData = await loadBaseData();
+  const officesById = new Map(baseData.offices.map((o) => [o.id, o] as const));
+  const devices = ((rows ?? []) as DeviceRow[]).map((r) => mapDevice(r, officesById));
+  return { data: devices, total: count ?? devices.length, page, limit };
+};
+
+export const getDeviceById = async (id: string): Promise<Device | null> => {
+  const { data: row, error } = await supabase!.from('dispositivo').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  if (!row) return null;
+  const baseData = await loadBaseData();
+  return mapDevice(row as DeviceRow, new Map(baseData.offices.map((o) => [o.id, o] as const)));
+};
+
 export const createDevice = async (data: DeviceCreatePayload): Promise<DeviceCreateResponse> => {
   const inventoryCodes = data.inventoryCodes?.length ? data.inventoryCodes : data.inventoryCode ? [data.inventoryCode] : [];
   const quantity = data.quantity ?? inventoryCodes.length ?? 1;

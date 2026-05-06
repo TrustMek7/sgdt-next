@@ -1,13 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { deleteDevice, getDevicesList, updateDevice } from '@/lib/api';
+import { deleteDevice, getDeviceById, updateDevice } from '@/lib/api';
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
-    const devicePage = await getDevicesList(1, 1000);
-    const device = devicePage.data.find((item) => item.id === id);
+    const device = await getDeviceById(id);
 
     if (!device) {
       return NextResponse.json({ message: 'Dispositivo no encontrado' }, { status: 404 });

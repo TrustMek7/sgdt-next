@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { FileText, Download } from 'lucide-react';
-import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, Image as PDFImage } from '@react-pdf/renderer';
+import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, Image as PDFImage, type ViewProps } from '@react-pdf/renderer';
 import { useReports } from '../hooks/useReports';
 import { reportService } from '../services/reportService';
 import { ReportBatchFilter, ReportBatchItem, DeviceType, Device, Baja } from '../lib/types';
@@ -63,11 +63,14 @@ const S = StyleSheet.create({
 
 // ─── PDF helpers ─────────────────────────────────────────────────────────────
 
-function TableHeader({ cols }: { cols: { label: string; style?: any }[] }) {
+function TableHeader({ cols }: { cols: { label: string; style?: ViewProps['style'] }[] }) {
   return (
     <View style={S.headerRow} minPresenceAhead={60}>
       {cols.map((c, i) => (
-        <View key={i} style={[S.cell, c.style]}>
+        <View
+          key={i}
+          style={c.style ? ({ ...(S.cell as any), ...(c.style as any) } as ViewProps['style']) : (S.cell as ViewProps['style'])}
+        >
           <Text style={S.headerText}>{c.label}</Text>
         </View>
       ))}
@@ -103,7 +106,7 @@ function buildAreaSections(report: ReportBatchItem): AreaSection[] {
     const areaDevices = report.devices.filter(
       (d) => d.asignacion === 'asignado' && areaOfficeIds.has(d.destinationOfficeId),
     );
-    const getType = (d: Device) => report.deviceTypes.find((t) => t.id === d.typeId)!;
+    const getType = (d: Device) => report.deviceTypes.find((t) => t.id === d.typeId);
 
     return {
       areaId: area.id,
@@ -111,11 +114,11 @@ function buildAreaSections(report: ReportBatchItem): AreaSection[] {
       newDevices: areaDevices
         .filter((d) => d.status === 'New')
         .map((d) => ({ device: d, type: getType(d) }))
-        .filter((x) => x.type),
+        .filter((x): x is { device: Device; type: DeviceType } => Boolean(x.type)),
       transferDevices: areaDevices
         .filter((d) => d.status === 'Transfer')
         .map((d) => ({ device: d, type: getType(d) }))
-        .filter((x) => x.type),
+        .filter((x): x is { device: Device; type: DeviceType } => Boolean(x.type)),
       bajas: report.bajas.filter((b) => b.areaId === area.id),
     };
   }).filter((s) => s.newDevices.length > 0 || s.transferDevices.length > 0 || s.bajas.length > 0);
