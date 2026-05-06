@@ -5,6 +5,7 @@ import { Plus, Edit, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '../components/Modal';
 import { Pagination } from '../components/Pagination';
+import { getErrorMessage } from '../lib/errorMessages';
 import { Area } from '../lib/types';
 import { useAreas } from '../hooks/useAreas';
 import { useDependencias } from '../hooks/useDependencias';
@@ -45,8 +46,8 @@ export function Areas() {
         toast.success('Subgerencia creada');
       }
       setIsModalOpen(false); reset();
-    } catch {
-      toast.error('No se pudo guardar');
+    } catch (err) {
+      toast.error(`No se pudo guardar la subgerencia: ${getErrorMessage(err)}`);
     }
   };
 
@@ -60,8 +61,8 @@ export function Areas() {
       await deleteArea(toDelete.id);
       toast.success('Subgerencia eliminada');
       setIsDeleteOpen(false); setToDelete(null);
-    } catch {
-      toast.error('No se pudo eliminar');
+    } catch (err) {
+      toast.error(`No se pudo eliminar la subgerencia: ${getErrorMessage(err)}`);
     }
   };
 

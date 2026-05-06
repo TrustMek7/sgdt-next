@@ -10,6 +10,7 @@ import { Device, DeviceCreatePayload, DeviceUpdatePayload } from '../lib/types';
 import { useDevices } from '../hooks/useDevices';
 import { useClasificaciones } from '../hooks/useClasificaciones';
 import { usePagination } from '../hooks/usePagination';
+import { getErrorMessage } from '../lib/errorMessages';
 
 export function Devices() {
   const {
@@ -145,7 +146,7 @@ export function Devices() {
         toast.success(`${res.created} dispositivo(s) creado(s)`);
       }
       setIsModalOpen(false); resetForm();
-    } catch { toast.error('No se pudo guardar'); }
+    } catch (err) { toast.error(`No se pudo guardar el dispositivo: ${getErrorMessage(err)}`); }
   };
 
   // ── Unassign ───────────────────────────────────────────────────────────────
@@ -155,7 +156,7 @@ export function Devices() {
       await unassignDevice(actionDevice.id);
       toast.success('Dispositivo desasignado (pendiente)');
       setIsUnassignOpen(false); setActionDevice(null);
-    } catch { toast.error('No se pudo desasignar'); }
+    } catch (err) { toast.error(`No se pudo desasignar: ${getErrorMessage(err)}`); }
   };
 
   // ── Reassign ───────────────────────────────────────────────────────────────
@@ -166,7 +167,7 @@ export function Devices() {
       toast.success('Dispositivo reasignado');
       setIsReassignOpen(false); setActionDevice(null);
       setReassignDepId(''); setReassignAreaId(''); setReassignOffice('');
-    } catch { toast.error('No se pudo reasignar'); }
+    } catch (err) { toast.error(`No se pudo reasignar: ${getErrorMessage(err)}`); }
   };
 
   // ── Swap ───────────────────────────────────────────────────────────────────
@@ -176,7 +177,7 @@ export function Devices() {
       await swapDevices(actionDevice.id, swapTargetId);
       toast.success('Intercambio realizado');
       setIsSwapOpen(false); setActionDevice(null); setSwapTargetId('');
-    } catch { toast.error('No se pudo realizar el intercambio'); }
+    } catch (err) { toast.error(`No se pudo realizar el intercambio: ${getErrorMessage(err)}`); }
   };
 
   // ── Delete ─────────────────────────────────────────────────────────────────
@@ -186,7 +187,7 @@ export function Devices() {
       await deleteDevice(actionDevice.id);
       toast.success('Dispositivo eliminado');
       setIsDeleteOpen(false); setActionDevice(null);
-    } catch { toast.error('No se pudo eliminar'); }
+    } catch (err) { toast.error(`No se pudo eliminar el dispositivo: ${getErrorMessage(err)}`); }
   };
 
   const typesForCurrentStatus = useMemo(() => {

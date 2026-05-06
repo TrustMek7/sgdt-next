@@ -5,6 +5,7 @@ import { Plus, Edit, Trash2, AlertCircle, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '../components/Modal';
 import { Pagination } from '../components/Pagination';
+import { getErrorMessage } from '../lib/errorMessages';
 import { Clasificacion } from '../lib/types';
 import { useClasificaciones } from '../hooks/useClasificaciones';
 import { usePagination } from '../hooks/usePagination';
@@ -41,8 +42,8 @@ export function Clasificaciones() {
         toast.success('Clasificación creada');
       }
       setIsModalOpen(false); reset();
-    } catch {
-      toast.error('No se pudo guardar la clasificación');
+    } catch (err) {
+      toast.error(`No se pudo guardar la clasificación: ${getErrorMessage(err)}`);
     }
   };
 
@@ -52,8 +53,8 @@ export function Clasificaciones() {
       await remove(toDelete.id);
       toast.success('Clasificación eliminada');
       setIsDeleteOpen(false); setToDelete(null);
-    } catch {
-      toast.error('No se pudo eliminar (puede tener tipos asociados)');
+    } catch (err) {
+      toast.error(`No se pudo eliminar la clasificación: ${getErrorMessage(err)}`);
     }
   };
 

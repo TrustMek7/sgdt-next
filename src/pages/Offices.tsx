@@ -5,6 +5,7 @@ import { Plus, Edit, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '../components/Modal';
 import { Pagination } from '../components/Pagination';
+import { getErrorMessage } from '../lib/errorMessages';
 import { Office } from '../lib/types';
 import { useOffices } from '../hooks/useOffices';
 import { useDependencias } from '../hooks/useDependencias';
@@ -70,7 +71,7 @@ export function Offices() {
       if (editing) { await updateOffice(editing.id, data); toast.success('Área actualizada'); }
       else          { await createOffice(data); toast.success('Área creada'); }
       setIsModalOpen(false); reset();
-    } catch { toast.error('No se pudo guardar'); }
+    } catch (err) { toast.error(`No se pudo guardar el área: ${getErrorMessage(err)}`); }
   };
 
   const handleDelete = async () => {
@@ -83,7 +84,7 @@ export function Offices() {
       await deleteOffice(toDelete.id);
       toast.success('Área eliminada');
       setIsDeleteOpen(false); setToDelete(null);
-    } catch { toast.error('No se pudo eliminar'); }
+    } catch (err) { toast.error(`No se pudo eliminar el área: ${getErrorMessage(err)}`); }
   };
 
   const areaName  = (id: string) => areas.find((a) => a.id === id)?.name ?? '-';

@@ -5,6 +5,7 @@ import { Plus, Edit, Trash2, AlertCircle, Network } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '../components/Modal';
 import { Pagination } from '../components/Pagination';
+import { getErrorMessage } from '../lib/errorMessages';
 import { Dependencia } from '../lib/types';
 import { useDependencias } from '../hooks/useDependencias';
 import { usePagination } from '../hooks/usePagination';
@@ -41,8 +42,8 @@ export function Dependencias() {
         toast.success('Dependencia creada');
       }
       setIsModalOpen(false); reset();
-    } catch (e) {
-      toast.error('No se pudo guardar la dependencia');
+    } catch (err) {
+      toast.error(`No se pudo guardar la dependencia: ${getErrorMessage(err)}`);
     }
   };
 
@@ -52,8 +53,8 @@ export function Dependencias() {
       await remove(toDelete.id);
       toast.success('Dependencia eliminada');
       setIsDeleteOpen(false); setToDelete(null);
-    } catch {
-      toast.error('No se pudo eliminar (puede tener subgerencias asociadas)');
+    } catch (err) {
+      toast.error(`No se pudo eliminar la dependencia: ${getErrorMessage(err)}`);
     }
   };
 

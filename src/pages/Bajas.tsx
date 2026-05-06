@@ -5,6 +5,7 @@ import { Plus, Edit, Trash2, AlertCircle, ListPlus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '../components/Modal';
 import { Pagination } from '../components/Pagination';
+import { getErrorMessage } from '../lib/errorMessages';
 import { Baja } from '../lib/types';
 import { useAreas } from '../hooks/useAreas';
 import { useBajas } from '../hooks/useBajas';
@@ -114,8 +115,8 @@ export function Bajas() {
       }
       setIsModalOpen(false);
       resetForm();
-    } catch {
-      toast.error('No se pudo guardar la baja');
+    } catch (err) {
+      toast.error(`No se pudo guardar la baja: ${getErrorMessage(err)}`);
     }
   };
 
@@ -150,8 +151,8 @@ export function Bajas() {
       })));
       toast.success(`${validRows.length} baja${validRows.length > 1 ? 's' : ''} registrada${validRows.length > 1 ? 's' : ''}`);
       setIsBulkModalOpen(false);
-    } catch {
-      toast.error('No se pudo guardar las bajas');
+    } catch (err) {
+      toast.error(`No se pudo guardar las bajas: ${getErrorMessage(err)}`);
     }
   };
 
@@ -164,8 +165,8 @@ export function Bajas() {
       toast.success('Baja eliminada');
       setIsDeleteConfirmOpen(false);
       setBajaToDelete(null);
-    } catch {
-      toast.error('No se pudo eliminar la baja');
+    } catch (err) {
+      toast.error(`No se pudo eliminar la baja: ${getErrorMessage(err)}`);
     }
   };
 

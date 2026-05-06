@@ -11,6 +11,7 @@ import { DeviceType } from '../lib/types';
 import { useDeviceTypes } from '../hooks/useDeviceTypes';
 import { useClasificaciones } from '../hooks/useClasificaciones';
 import { usePagination } from '../hooks/usePagination';
+import { getErrorMessage } from '../lib/errorMessages';
 
 const CLASIF_COLORS: Record<string, string> = {
   'Electrónico': 'bg-blue-100 text-blue-700',
@@ -53,7 +54,7 @@ export function DeviceTypes() {
     setIsPanelOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.planCode.trim() || !formData.description.trim()) {
       toast.error('El código y la descripción son requeridos');
       return;
@@ -67,26 +68,33 @@ export function DeviceTypes() {
       clasificacionId: formData.clasificacionId || undefined,
     };
 
-    const request = currentType
-      ? updateDeviceType(currentType.id, payload)
-      : createDeviceType(payload);
-
-    request
-      .then(() => {
-        toast.success(currentType ? 'Tipo de dispositivo actualizado' : 'Tipo de dispositivo creado');
-        setIsPanelOpen(false);
-        resetForm();
-      })
-      .catch(() => toast.error('No se pudo guardar el tipo de dispositivo'));
+    try {
+      if (currentType) {
+        await updateDeviceType(currentType.id, payload);
+        toast.success('Tipo de dispositivo actualizado');
+      } else {
+        await createDeviceType(payload);
+        toast.success('Tipo de dispositivo creado');
+      }
+      setIsPanelOpen(false);
+      resetForm();
+    } catch (err) {
+      toast.error(`No se pudo guardar el tipo de dispositivo: ${getErrorMessage(err)}`);
+    }
   };
 
   const handleDeleteClick = (type: DeviceType) => { setTypeToDelete(type); setIsDeleteConfirmOpen(true); };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!typeToDelete) return;
-    deleteDeviceType(typeToDelete.id)
-      .then(() => { toast.success('Tipo de dispositivo eliminado'); setIsDeleteConfirmOpen(false); setTypeToDelete(null); })
-      .catch(() => toast.error('No se pudo eliminar el tipo de dispositivo'));
+    try {
+      await deleteDeviceType(typeToDelete.id);
+      toast.success('Tipo de dispositivo eliminado');
+      setIsDeleteConfirmOpen(false);
+      setTypeToDelete(null);
+    } catch (err) {
+      toast.error(`No se pudo eliminar el tipo de dispositivo: ${getErrorMessage(err)}`);
+    }
   };
 
   const getBadgeStatus = (planCode: string) => {
