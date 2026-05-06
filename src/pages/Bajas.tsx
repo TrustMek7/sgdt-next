@@ -318,7 +318,7 @@ export function Bajas() {
       </Modal>
 
       {/* Bulk baja modal */}
-      <Modal isOpen={isBulkModalOpen} onClose={() => setIsBulkModalOpen(false)} title="Baja Múltiple">
+        <Modal isOpen={isBulkModalOpen} onClose={() => setIsBulkModalOpen(false)} title="Baja Múltiple" maxWidth="max-w-4xl">
         <div className="space-y-4">
           <div>
             <div className="flex justify-between items-center mb-3">
@@ -334,11 +334,11 @@ export function Bajas() {
               <div className="grid grid-cols-12 gap-2 bg-gray-50 border-b border-gray-200 p-2 text-xs font-medium text-gray-600">
                 <div className="col-span-1">#</div>
                 <div className="col-span-2">Subgerencia *</div>
-                <div className="col-span-2">Cód. inv.</div>
+                <div className="col-span-1">Cód. inv.</div>
                 <div className="col-span-2">Descripción *</div>
-                <div className="col-span-2">Oficina</div>
-                <div className="col-span-1">Origen</div>
-                <div className="col-span-1">Motivo</div>
+                <div className="col-span-1">Oficina</div>
+                <div className="col-span-2">Origen</div>
+                <div className="col-span-2">Motivo</div>
                 <div className="col-span-1"></div>
               </div>
               
@@ -361,7 +361,7 @@ export function Bajas() {
                       type="text"
                       value={row.inventoryCode}
                       onChange={(e) => updateBulkRow(index, 'inventoryCode', e.target.value)}
-                      className="col-span-2 input-field text-xs"
+                      className="col-span-1 input-field text-xs"
                       placeholder="Cód."
                     />
                     
@@ -377,7 +377,7 @@ export function Bajas() {
                       type="text"
                       value={row.officeName}
                       onChange={(e) => updateBulkRow(index, 'officeName', e.target.value)}
-                      className="col-span-2 input-field text-xs"
+                      className="col-span-1 input-field text-xs"
                       placeholder="Oficina"
                     />
                     
@@ -385,7 +385,7 @@ export function Bajas() {
                       type="text"
                       value={row.origin}
                       onChange={(e) => updateBulkRow(index, 'origin', e.target.value)}
-                      className="col-span-1 input-field text-xs"
+                      className="col-span-2 input-field text-xs"
                       placeholder="Origen"
                     />
                     
@@ -393,7 +393,7 @@ export function Bajas() {
                       type="text"
                       value={row.reason}
                       onChange={(e) => updateBulkRow(index, 'reason', e.target.value)}
-                      className="col-span-1 input-field text-xs"
+                      className="col-span-2 input-field text-xs"
                       placeholder="Motivo"
                     />
                     
