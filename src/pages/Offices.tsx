@@ -4,9 +4,11 @@ import React, { useMemo, useState } from 'react';
 import { Plus, Edit, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '../components/Modal';
+import { Pagination } from '../components/Pagination';
 import { Office } from '../lib/types';
 import { useOffices } from '../hooks/useOffices';
 import { useDependencias } from '../hooks/useDependencias';
+import { usePagination } from '../hooks/usePagination';
 
 export function Offices() {
   const { offices, areas, loading, createOffice, updateOffice, deleteOffice } = useOffices();
@@ -43,6 +45,8 @@ export function Offices() {
     }
     return true;
   }), [offices, areas, filterFloor, filterAreaId, filterDepId]);
+
+  const { paginatedItems: pagedOffices, page, setPage, pageSize, setPageSize, totalPages, totalItems } = usePagination(filteredOffices, 10);
 
   const reset = () => { setForm({ name: '', floor: '', depId: '', areaId: '' }); setErrors({}); setEditing(null); };
 
@@ -126,7 +130,7 @@ export function Offices() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredOffices.map((office) => (
+              {pagedOffices.map((office) => (
                 <tr key={office.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 font-medium text-gray-900">{office.name}</td>
                   <td className="px-6 py-4 text-gray-600">{areaName(office.areaId)}</td>
@@ -151,6 +155,14 @@ export function Offices() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); reset(); }} title={editing ? 'Editar Área' : 'Nueva Área'}>

@@ -9,7 +9,6 @@ import {
   DeviceCreatePayload,
   DeviceCreateResponse,
   DeviceUpdatePayload,
-  PaginatedDevicesResponse,
   ReportBatchFilter,
   ReportBatchResponse,
   ReportBatchItem,
@@ -528,12 +527,9 @@ export const deleteDeviceType = async (id: string) => {
 
 // ─── Dispositivos ─────────────────────────────────────────────────────────────
 
-export const getDevicesList = async (page = 1, limit = 10): Promise<PaginatedDevicesResponse> => {
+export const getDevicesList = async (): Promise<Device[]> => {
   const baseData = await loadBaseData();
-  const totalCount = baseData.devices.length;
-  const totalPages = Math.max(1, Math.ceil(totalCount / limit));
-  const start = (page - 1) * limit;
-  return { data: baseData.devices.slice(start, start + limit), totalCount, page, totalPages };
+  return baseData.devices;
 };
 
 export const createDevice = async (data: DeviceCreatePayload): Promise<DeviceCreateResponse> => {

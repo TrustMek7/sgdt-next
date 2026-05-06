@@ -4,8 +4,10 @@ import React, { useState } from 'react';
 import { Plus, Edit, Trash2, AlertCircle, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '../components/Modal';
+import { Pagination } from '../components/Pagination';
 import { Clasificacion } from '../lib/types';
 import { useClasificaciones } from '../hooks/useClasificaciones';
+import { usePagination } from '../hooks/usePagination';
 
 export function Clasificaciones() {
   const { clasificaciones, loading, create, update, remove } = useClasificaciones();
@@ -55,6 +57,8 @@ export function Clasificaciones() {
     }
   };
 
+  const { paginatedItems: pagedClasificaciones, page, setPage, pageSize, setPageSize, totalPages, totalItems } = usePagination(clasificaciones, 10);
+
   const colorMap: Record<string, string> = {
     'Electrónico': 'bg-blue-50 text-blue-700',
     'Mobiliario':  'bg-green-50 text-green-700',
@@ -82,7 +86,7 @@ export function Clasificaciones() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {clasificaciones.map((cl) => (
+              {pagedClasificaciones.map((cl) => (
                 <tr key={cl.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${colorMap[cl.name] ?? 'bg-gray-50 text-gray-700'}`}>
@@ -113,6 +117,14 @@ export function Clasificaciones() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); reset(); }} title={editing ? 'Editar Clasificación' : 'Nueva Clasificación'}>

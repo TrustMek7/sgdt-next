@@ -4,10 +4,12 @@ import React, { useMemo, useState } from 'react';
 import { Plus, Edit, Trash2, AlertCircle, ListPlus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '../components/Modal';
+import { Pagination } from '../components/Pagination';
 import { Baja } from '../lib/types';
 import { useAreas } from '../hooks/useAreas';
 import { useBajas } from '../hooks/useBajas';
 import { useDependencias } from '../hooks/useDependencias';
+import { usePagination } from '../hooks/usePagination';
 
 interface BulkRow {
   inventoryCode: string;
@@ -61,6 +63,8 @@ export function Bajas() {
     }
     return true;
   }), [bajas, areas, filterAreaId, filterDepId]);
+
+  const { paginatedItems: pagedBajas, page, setPage, pageSize, setPageSize, totalPages, totalItems } = usePagination(filteredBajas, 10);
 
   // ── Single modal helpers ───────────────────────────────────────────────────
 
@@ -212,7 +216,7 @@ export function Bajas() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredBajas.map((baja) => (
+              {pagedBajas.map((baja) => (
                 <tr key={baja.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="font-medium text-gray-900">{areaNameById(baja.areaId)}</div>
@@ -243,6 +247,14 @@ export function Bajas() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* Single baja modal */}

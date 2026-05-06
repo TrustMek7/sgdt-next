@@ -4,9 +4,11 @@ import React, { useState } from 'react';
 import { Plus, Edit, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '../components/Modal';
+import { Pagination } from '../components/Pagination';
 import { Area } from '../lib/types';
 import { useAreas } from '../hooks/useAreas';
 import { useDependencias } from '../hooks/useDependencias';
+import { usePagination } from '../hooks/usePagination';
 
 export function Areas() {
   const { areas, loading, createArea, updateArea, deleteArea } = useAreas();
@@ -67,6 +69,8 @@ export function Areas() {
 
   const filtered = filterDepId ? areas.filter((a) => a.dependenciaId === filterDepId) : areas;
 
+  const { paginatedItems: pagedAreas, page, setPage, pageSize, setPageSize, totalPages, totalItems } = usePagination(filtered, 10);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -95,7 +99,7 @@ export function Areas() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map((area) => (
+              {pagedAreas.map((area) => (
                 <tr key={area.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 font-medium text-gray-900">{area.name}</td>
                   <td className="px-6 py-4 text-gray-500">{depName(area.dependenciaId)}</td>
@@ -122,6 +126,14 @@ export function Areas() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); reset(); }} title={editing ? 'Editar Subgerencia' : 'Nueva Subgerencia'}>

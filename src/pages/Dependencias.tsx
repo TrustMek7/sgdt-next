@@ -4,8 +4,10 @@ import React, { useState } from 'react';
 import { Plus, Edit, Trash2, AlertCircle, Network } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '../components/Modal';
+import { Pagination } from '../components/Pagination';
 import { Dependencia } from '../lib/types';
 import { useDependencias } from '../hooks/useDependencias';
+import { usePagination } from '../hooks/usePagination';
 
 export function Dependencias() {
   const { dependencias, loading, create, update, remove } = useDependencias();
@@ -55,6 +57,8 @@ export function Dependencias() {
     }
   };
 
+  const { paginatedItems: pagedDependencias, page, setPage, pageSize, setPageSize, totalPages, totalItems } = usePagination(dependencias, 10);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -76,7 +80,7 @@ export function Dependencias() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {dependencias.map((dep) => (
+              {pagedDependencias.map((dep) => (
                 <tr key={dep.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 font-medium text-gray-900 flex items-center gap-2">
                     <Network className="w-4 h-4 text-blue-500 flex-shrink-0" />
@@ -106,6 +110,14 @@ export function Dependencias() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); reset(); }} title={editing ? 'Editar Dependencia' : 'Nueva Dependencia'}>

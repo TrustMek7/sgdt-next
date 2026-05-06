@@ -2,7 +2,7 @@ import { createDevice, deleteDevice, getDevicesList, updateDevice, unassignDevic
 import { DeviceCreatePayload, DeviceUpdatePayload } from '../lib/types';
 
 export const deviceService = {
-  list: (page = 1, limit = 10) => getDevicesList(page, limit),
+  list: () => getDevicesList(),
   create: (data: DeviceCreatePayload) => createDevice(data),
   update: (id: string, data: DeviceUpdatePayload) => updateDevice(id, data),
   unassign: (id: string) => unassignDevice(id),

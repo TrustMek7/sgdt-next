@@ -5,14 +5,16 @@ import { Plus, Search, Edit, Trash2, AlertCircle, Unplug, ArrowLeftRight, MapPin
 import { toast } from 'sonner';
 import { Badge } from '../components/Badge';
 import { Modal } from '../components/Modal';
+import { Pagination } from '../components/Pagination';
 import { Device, DeviceCreatePayload, DeviceUpdatePayload } from '../lib/types';
 import { useDevices } from '../hooks/useDevices';
 import { useClasificaciones } from '../hooks/useClasificaciones';
+import { usePagination } from '../hooks/usePagination';
 
 export function Devices() {
   const {
     devices, deviceTypes, offices, areas, dependencias,
-    page, setPage, totalPages, loading,
+    loading,
     createDevice, updateDevice, unassignDevice, reassignDevice, swapDevices, deleteDevice,
   } = useDevices();
   const { clasificaciones } = useClasificaciones();
@@ -77,6 +79,8 @@ export function Devices() {
     }
     return true;
   }), [devices, search, filterStatus, filterAsig, filterClasif, filterAreaId, filterDepId, offices, areas, deviceTypes]);
+
+  const { paginatedItems: pagedDevices, page, setPage, pageSize, setPageSize, totalPages, totalItems } = usePagination(filteredDevices, 10);
 
   // Devices eligible for swap (same type, asignado, different office)
   const swapCandidates = useMemo(() => {
@@ -257,7 +261,7 @@ export function Devices() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredDevices.map((device) => {
+              {pagedDevices.map((device) => {
                 const tipo = deviceTypes.find((t) => t.id === device.typeId);
                 return (
                   <tr key={device.id} className={`hover:bg-gray-50 transition-colors ${device.asignacion === 'pendiente' ? 'bg-yellow-50/40' : ''}`}>
@@ -295,16 +299,20 @@ export function Devices() {
               {!loading && filteredDevices.length === 0 && (
                 <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-500">No hay dispositivos con estos filtros</td></tr>
               )}
+              {loading && (
+                <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-400">Cargando...</td></tr>
+              )}
             </tbody>
           </table>
         </div>
-        {totalPages > 1 && (
-          <div className="p-4 border-t flex justify-center gap-2">
-            <button onClick={() => setPage(page - 1)} disabled={page === 1} className="px-3 py-1.5 text-sm border rounded disabled:opacity-40">Anterior</button>
-            <span className="px-3 py-1.5 text-sm text-gray-500">Pág. {page} / {totalPages}</span>
-            <button onClick={() => setPage(page + 1)} disabled={page === totalPages} className="px-3 py-1.5 text-sm border rounded disabled:opacity-40">Siguiente</button>
-          </div>
-        )}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* Create / Edit modal */}

@@ -6,9 +6,11 @@ import { toast } from 'sonner';
 import { SidePanel } from '../components/SidePanel';
 import { Modal } from '../components/Modal';
 import { Badge } from '../components/Badge';
+import { Pagination } from '../components/Pagination';
 import { DeviceType } from '../lib/types';
 import { useDeviceTypes } from '../hooks/useDeviceTypes';
 import { useClasificaciones } from '../hooks/useClasificaciones';
+import { usePagination } from '../hooks/usePagination';
 
 const CLASIF_COLORS: Record<string, string> = {
   'Electrónico': 'bg-blue-100 text-blue-700',
@@ -98,6 +100,8 @@ export function DeviceTypes() {
 
   const filtered = filterClasifId ? types.filter((t) => t.clasificacionId === filterClasifId) : types;
 
+  const { paginatedItems: pagedTypes, page, setPage, pageSize, setPageSize, totalPages, totalItems } = usePagination(filtered, 10);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -131,7 +135,7 @@ export function DeviceTypes() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map((type) => {
+              {pagedTypes.map((type) => {
                 const status = getBadgeStatus(type.planCode);
                 const name = clasifName(type.clasificacionId);
                 return (
@@ -181,6 +185,14 @@ export function DeviceTypes() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       <SidePanel isOpen={isPanelOpen} onClose={() => setIsPanelOpen(false)} title={currentType ? 'Editar Tipo de Dispositivo' : 'Nuevo Tipo de Dispositivo'}>
