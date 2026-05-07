@@ -43,6 +43,7 @@ const S = StyleSheet.create({
   colDesc:       { width: '22%' },
   colChar:       { width: '22%' },
   colBrand:      { width: '18%' },
+  colBrandWide:  { width: '32%' },
   colImg:        { width: '14%', borderRight: 0, alignItems: 'center', justifyContent: 'center' },
   colOrigin:     { width: '22%' },
 
@@ -200,21 +201,17 @@ function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: 
                 ) : (
                   <View style={S.table}>
                     <TableHeader cols={[
-                      { label: 'INVENTARIO',     style: S.colCode },
-                      { label: 'PLAN',           style: S.colPlan },
-                      { label: 'DESCRIPCIÓN',    style: S.colDesc },
-                      { label: 'ORIGEN',         style: S.colOrigin },
-                      { label: 'MARCA / MODELO', style: S.colBrand },
-                      { label: 'IMAGEN',         style: S.colImg },
+                      { label: 'INVENTARIO',  style: S.colCode },
+                      { label: 'PLAN',        style: S.colPlan },
+                      { label: 'DESCRIPCIÓN', style: { width: '38%' } },
+                      { label: 'ORIGEN',      style: { width: '38%' } },
                     ]} />
                     {section.transferDevices.map(({ device, type }, i) => (
                       <View key={i} style={S.row} wrap={false}>
                         <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
                         <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
-                        <View style={[S.cell, S.colDesc]}><Text style={S.cellText}>{type.description}</Text></View>
-                        <View style={[S.cell, S.colOrigin]}><Text style={S.cellText}>{device.originOfficeDescription || '-'}</Text></View>
-                        <View style={[S.cell, S.colBrand]}><Text style={S.cellText}>{type.brandModel || '-'}</Text></View>
-                        <DeviceImageCell url={type.imageUrl} baseUrl={baseUrl} />
+                        <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{type.description}</Text></View>
+                        <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{device.originOfficeDescription || '-'}</Text></View>
                       </View>
                     ))}
                   </View>
