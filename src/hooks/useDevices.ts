@@ -72,10 +72,15 @@ export function useDevices() {
     await loadData();
   };
 
+  const retireDevice = async (id: string, motivo: string) => {
+    await deviceService.retire(id, motivo);
+    await loadData();
+  };
+
   return {
     devices, deviceTypes, offices, areas, dependencias,
     loading,
     reload: loadData,
-    createDevice, updateDevice, unassignDevice, reassignDevice, swapDevices, deleteDevice,
+    createDevice, updateDevice, unassignDevice, reassignDevice, swapDevices, deleteDevice, retireDevice,
   };
 }

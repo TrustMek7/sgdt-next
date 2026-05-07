@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Plus, Search, Edit, Trash2, AlertCircle, Unplug, ArrowLeftRight, MapPin } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, AlertCircle, Unplug, ArrowLeftRight, MapPin, Archive, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '../components/Badge';
 import { Modal } from '../components/Modal';
 import { Pagination } from '../components/Pagination';
-import { Device, DeviceCreatePayload, DeviceUpdatePayload } from '../lib/types';
+import { Device, DeviceCreatePayload, DeviceUpdatePayload, DeviceHistorialEntry } from '../lib/types';
+import { getDeviceHistory } from '../lib/api';
 import { useDevices } from '../hooks/useDevices';
 import { useClasificaciones } from '../hooks/useClasificaciones';
 import { usePagination } from '../hooks/usePagination';
@@ -16,7 +17,7 @@ export function Devices() {
   const {
     devices, deviceTypes, offices, areas, dependencias,
     loading,
-    createDevice, updateDevice, unassignDevice, reassignDevice, swapDevices, deleteDevice,
+    createDevice, updateDevice, unassignDevice, reassignDevice, swapDevices, deleteDevice, retireDevice,
   } = useDevices();
   const { clasificaciones } = useClasificaciones();
 
@@ -34,6 +35,11 @@ export function Devices() {
   const [isUnassignOpen, setIsUnassignOpen] = useState(false);
   const [isReassignOpen, setIsReassignOpen] = useState(false);
   const [isSwapOpen,     setIsSwapOpen]     = useState(false);
+  const [isRetireOpen,   setIsRetireOpen]   = useState(false);
+  const [retireMotivo,   setRetireMotivo]   = useState('');
+  const [isHistorialOpen, setIsHistorialOpen] = useState(false);
+  const [historial,       setHistorial]       = useState<DeviceHistorialEntry[]>([]);
+  const [historialLoading, setHistorialLoading] = useState(false);
 
   const [editing,        setEditing]        = useState<Device | null>(null);
   const [actionDevice,   setActionDevice]   = useState<Device | null>(null);
@@ -194,6 +200,29 @@ export function Devices() {
     } catch (err) { toast.error(`No se pudo eliminar el dispositivo: ${getErrorMessage(err)}`); }
   };
 
+  // ── Historial ──────────────────────────────────────────────────────────────
+  const openHistorial = async (device: Device) => {
+    setActionDevice(device);
+    setHistorial([]);
+    setHistorialLoading(true);
+    setIsHistorialOpen(true);
+    try {
+      const data = await getDeviceHistory(device.id);
+      setHistorial(data);
+    } catch { toast.error('No se pudo cargar el historial'); }
+    finally { setHistorialLoading(false); }
+  };
+
+  // ── Retire (dar de baja) ───────────────────────────────────────────────────
+  const handleRetire = async () => {
+    if (!actionDevice || !retireMotivo.trim()) { toast.error('El motivo es requerido'); return; }
+    try {
+      await retireDevice(actionDevice.id, retireMotivo.trim());
+      toast.success('Dispositivo dado de baja');
+      setIsRetireOpen(false); setActionDevice(null); setRetireMotivo('');
+    } catch (err) { toast.error(`No se pudo dar de baja: ${getErrorMessage(err)}`); }
+  };
+
   const typesForCurrentStatus = useMemo(() => {
     const s = formData.status || editing?.status;
     if (!s) return deviceTypes;
@@ -286,6 +315,7 @@ export function Devices() {
                     <td className="px-4 py-3 text-center">
                       <div className="flex justify-center gap-1">
                         <button onClick={() => openEdit(device)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Editar"><Edit className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => openHistorial(device)} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition" title="Ver historial"><Clock className="w-3.5 h-3.5" /></button>
                         {device.asignacion === 'asignado' && device.destinationOfficeId && (
                           <button onClick={() => { setActionDevice(device); setIsUnassignOpen(true); }} className="p-1.5 text-orange-500 hover:bg-orange-50 rounded-lg transition" title="Desasignar"><Unplug className="w-3.5 h-3.5" /></button>
                         )}
@@ -294,6 +324,9 @@ export function Devices() {
                         )}
                         {device.asignacion === 'pendiente' && (
                           <button onClick={() => { setActionDevice(device); setReassignDepId(''); setReassignAreaId(''); setReassignOffice(''); setIsReassignOpen(true); }} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition" title="Reasignar"><MapPin className="w-3.5 h-3.5" /></button>
+                        )}
+                        {device.asignacion === 'asignado' && (
+                          <button onClick={() => { setActionDevice(device); setRetireMotivo(''); setIsRetireOpen(true); }} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Dar de baja"><Archive className="w-3.5 h-3.5" /></button>
                         )}
                         <button onClick={() => { setActionDevice(device); setIsDeleteOpen(true); }} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition" title="Eliminar"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
@@ -488,6 +521,71 @@ export function Devices() {
           <div className="flex gap-3 pt-2">
             <button onClick={handleSwap} disabled={!swapTargetId} className="flex-1 bg-purple-600 text-white font-medium py-2 rounded-lg hover:bg-purple-700 transition disabled:opacity-40">Intercambiar</button>
             <button onClick={() => setIsSwapOpen(false)} className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg hover:bg-gray-50 transition">Cancelar</button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Historial de movimientos */}
+      <Modal isOpen={isHistorialOpen} onClose={() => setIsHistorialOpen(false)} title="Historial del dispositivo">
+        <div className="space-y-3">
+          {actionDevice && (
+            <p className="text-sm text-gray-500">{actionDevice.inventoryCode || actionDevice.planCode}</p>
+          )}
+          {historialLoading ? (
+            <p className="text-center text-gray-400 py-6">Cargando historial...</p>
+          ) : historial.length === 0 ? (
+            <p className="text-center text-gray-400 py-6">Sin registros de movimientos</p>
+          ) : (
+            <ol className="relative border-l border-gray-200 ml-3">
+              {historial.map((entry) => {
+                const labels: Record<string, { label: string; color: string }> = {
+                  creacion:    { label: 'Creación',    color: 'bg-green-100 text-green-700' },
+                  reasignacion:{ label: 'Reasignación',color: 'bg-blue-100 text-blue-700' },
+                  intercambio: { label: 'Intercambio', color: 'bg-purple-100 text-purple-700' },
+                  baja:        { label: 'Baja',        color: 'bg-red-100 text-red-700' },
+                };
+                const meta = labels[entry.accion] ?? { label: entry.accion, color: 'bg-gray-100 text-gray-700' };
+                return (
+                  <li key={entry.id} className="mb-4 ml-4">
+                    <div className="absolute w-2.5 h-2.5 bg-gray-300 rounded-full -left-1.5 mt-1.5" />
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${meta.color}`}>{meta.label}</span>
+                      <time className="text-xs text-gray-400">{new Date(entry.createdAt).toLocaleString('es-PE')}</time>
+                    </div>
+                    {entry.detalle && <p className="text-sm text-gray-600">{entry.detalle}</p>}
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+          <div className="pt-2">
+            <button onClick={() => setIsHistorialOpen(false)} className="w-full border border-gray-300 text-gray-700 font-medium py-2 rounded-lg hover:bg-gray-50 transition">Cerrar</button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Retire (dar de baja) */}
+      <Modal isOpen={isRetireOpen} onClose={() => { setIsRetireOpen(false); setRetireMotivo(''); }} title="Dar de baja">
+        <div className="space-y-4">
+          {actionDevice && (
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm space-y-1 text-gray-600">
+              <p><span className="font-medium">Código:</span> {actionDevice.inventoryCode || '—'}</p>
+              <p><span className="font-medium">Tipo:</span> {deviceTypes.find((t) => t.id === actionDevice.typeId)?.description ?? actionDevice.planCode}</p>
+              <p><span className="font-medium">Oficina:</span> {officeName(actionDevice.destinationOfficeId)}</p>
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Motivo *</label>
+            <textarea
+              value={retireMotivo}
+              onChange={(e) => setRetireMotivo(e.target.value)}
+              className="input-field min-h-[96px]"
+              placeholder="Describe el motivo de la baja (obsolescencia, daño, etc.)"
+            />
+          </div>
+          <div className="flex gap-3">
+            <button onClick={handleRetire} className="flex-1 bg-amber-600 text-white font-medium py-2 rounded-lg hover:bg-amber-700 transition">Dar de baja</button>
+            <button onClick={() => { setIsRetireOpen(false); setRetireMotivo(''); }} className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg hover:bg-gray-50 transition">Cancelar</button>
           </div>
         </div>
       </Modal>

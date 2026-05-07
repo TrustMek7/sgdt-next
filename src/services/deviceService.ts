@@ -1,4 +1,4 @@
-import { createDevice, deleteDevice, getDevicesList, updateDevice, unassignDevice, reassignDevice, swapDevices } from '../lib/api';
+import { createDevice, deleteDevice, getDevicesList, updateDevice, unassignDevice, reassignDevice, swapDevices, retireDevice } from '../lib/api';
 import { DeviceCreatePayload, DeviceUpdatePayload } from '../lib/types';
 
 export const deviceService = {
@@ -9,4 +9,5 @@ export const deviceService = {
   reassign: (id: string, destinationOfficeId: string) => reassignDevice(id, destinationOfficeId),
   swap: (idA: string, idB: string) => swapDevices(idA, idB),
   remove: (id: string) => deleteDevice(id),
+  retire: (id: string, motivo: string) => retireDevice(id, motivo),
 };

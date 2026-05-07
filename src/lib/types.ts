@@ -80,6 +80,16 @@ export interface DeviceUpdatePayload {
   asignacion?: Asignacion;
 }
 
+export type HistorialAccion = 'creacion' | 'reasignacion' | 'intercambio' | 'baja';
+
+export interface DeviceHistorialEntry {
+  id: string;
+  dispositivoId: string;
+  accion: HistorialAccion;
+  detalle?: string;
+  createdAt: string;
+}
+
 export interface PaginatedDevicesResponse {
   data: Device[];
   totalCount: number;
@@ -93,6 +103,7 @@ export interface ReportSummary {
   offices: Office[];
   deviceTypes: DeviceType[];
   devices: Device[];
+  clasificaciones: Clasificacion[];
   totals: {
     areas: number;
     offices: number;
@@ -100,6 +111,9 @@ export interface ReportSummary {
     devices: number;
     newDevices: number;
     transferDevices: number;
+    asignados: number;
+    pendientes: number;
+    bajas: number;
   };
 }
 
@@ -112,6 +126,10 @@ export interface Baja {
   description: string;
   origin: string;
   reason: string;
+}
+
+export interface DeviceRetirePayload {
+  motivo: string;
 }
 
 export interface BajaCreatePayload {

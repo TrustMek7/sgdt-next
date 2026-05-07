@@ -32,6 +32,7 @@ export function useReports() {
   const offices = summary?.offices || [];
   const devices = summary?.devices || [];
   const deviceTypes = summary?.deviceTypes || [];
+  const clasificaciones = summary?.clasificaciones || [];
 
   return {
     summary,
@@ -40,6 +41,7 @@ export function useReports() {
     offices,
     devices,
     deviceTypes,
+    clasificaciones,
     loading,
     reload: loadSummary,
     totals: summary?.totals || null,

@@ -20,6 +20,8 @@ import {
   AreaReportItem,
   AreaReportDeviceRow,
   AreaReportBajaRow,
+  DeviceHistorialEntry,
+  HistorialAccion,
 } from './types';
 
 // ─── Row types (DB shape) ─────────────────────────────────────────────────────
@@ -192,13 +194,17 @@ const loadBaseData = async () => {
     offices: officesWithCounts,
     deviceTypes,
     devices,
+    clasificaciones,
     totals: {
       areas: areas.length,
       offices: officesWithCounts.length,
       deviceTypes: deviceTypes.length,
-      devices: devices.filter((d) => d.asignacion === 'asignado').length,
+      devices: devices.length,
       newDevices: devices.filter((d) => d.status === 'New' && d.asignacion === 'asignado').length,
       transferDevices: devices.filter((d) => d.status === 'Transfer' && d.asignacion === 'asignado').length,
+      asignados: devices.filter((d) => d.asignacion === 'asignado').length,
+      pendientes: devices.filter((d) => d.asignacion === 'pendiente').length,
+      bajas: rawBajas.length,
     },
   };
 
@@ -266,6 +272,7 @@ const filterSummary = (
     deviceTypes: data.deviceTypes,
     devices: filteredDevices,
     bajas: filteredBajas,
+    clasificaciones: data.clasificaciones,
     totals: {
       areas: filteredAreas.length,
       offices: filteredOffices.length,
@@ -273,6 +280,9 @@ const filterSummary = (
       devices: filteredDevices.length,
       newDevices: filteredDevices.filter((d) => d.status === 'New').length,
       transferDevices: filteredDevices.filter((d) => d.status === 'Transfer').length,
+      asignados: filteredDevices.filter((d) => d.asignacion === 'asignado').length,
+      pendientes: filteredDevices.filter((d) => d.asignacion === 'pendiente').length,
+      bajas: filteredBajas.length,
     },
   };
 };
@@ -551,6 +561,28 @@ export const getDeviceById = async (id: string): Promise<Device | null> => {
   return mapDevice(row as DeviceRow, new Map(baseData.offices.map((o) => [o.id, o] as const)));
 };
 
+// ─── Historial ────────────────────────────────────────────────────────────────
+
+const insertHistorial = async (dispositivoId: number, accion: HistorialAccion, detalle?: string) => {
+  await supabase!.from('dispositivo_historial').insert([{ dispositivoId, accion, detalle: detalle ?? null }]);
+};
+
+export const getDeviceHistory = async (id: string): Promise<DeviceHistorialEntry[]> => {
+  const { data, error } = await supabase!
+    .from('dispositivo_historial')
+    .select('*')
+    .eq('dispositivoId', Number(id))
+    .order('createdAt', { ascending: true });
+  if (error) throw error;
+  return ((data ?? []) as { id: number; dispositivoId: number; accion: string; detalle: string | null; createdAt: string }[]).map((r) => ({
+    id: String(r.id),
+    dispositivoId: String(r.dispositivoId),
+    accion: r.accion as HistorialAccion,
+    detalle: r.detalle ?? undefined,
+    createdAt: r.createdAt,
+  }));
+};
+
 export const createDevice = async (data: DeviceCreatePayload): Promise<DeviceCreateResponse> => {
   const inventoryCodes = data.inventoryCodes?.length ? data.inventoryCodes : data.inventoryCode ? [data.inventoryCode] : [];
   const quantity = data.quantity ?? inventoryCodes.length ?? 1;
@@ -575,6 +607,12 @@ export const createDevice = async (data: DeviceCreatePayload): Promise<DeviceCre
   const baseData = await loadBaseData();
   const officesById = new Map(baseData.offices.map((o) => [o.id, o] as const));
   const insertedDevices = ((res ?? []) as DeviceRow[]).map((r) => mapDevice(r, officesById));
+
+  const destOffice = baseData.offices.find((o) => o.id === data.destinationOfficeId);
+  await Promise.all(
+    insertedDevices.map((d) => insertHistorial(Number(d.id), 'creacion', `Asignado a ${destOffice?.name ?? data.destinationOfficeId}`))
+  );
+
   return { message: 'created', created: insertedDevices.length, devices: insertedDevices };
 };
 
@@ -610,21 +648,29 @@ export const reassignDevice = async (id: string, destinationOfficeId: string): P
     .eq('id', id).select('*').single();
   if (error) throw error;
   const baseData = await loadBaseData();
+  const office = baseData.offices.find((o) => o.id === destinationOfficeId);
+  await insertHistorial(Number(id), 'reasignacion', `Reasignado a ${office?.name ?? destinationOfficeId}`);
   return mapDevice(res as DeviceRow, new Map(baseData.offices.map((o) => [o.id, o] as const)));
 };
 
 export const swapDevices = async (idA: string, idB: string): Promise<void> => {
-  // Fetch both devices
   const { data, error } = await supabase!.from('dispositivo')
     .select('id, destinoId').in('id', [Number(idA), Number(idB)]);
   if (error) throw error;
   if (!data || data.length !== 2) throw new Error('No se encontraron ambos dispositivos');
 
   const [a, b] = data as { id: number; destinoId: number | null }[];
-  // Swap destinoIds
   await Promise.all([
     supabase!.from('dispositivo').update({ destinoId: b.destinoId, asignacion: b.destinoId ? 'asignado' : 'pendiente' }).eq('id', a.id),
     supabase!.from('dispositivo').update({ destinoId: a.destinoId, asignacion: a.destinoId ? 'asignado' : 'pendiente' }).eq('id', b.id),
+  ]);
+
+  const baseData = await loadBaseData();
+  const officeA = a.destinoId ? baseData.offices.find((o) => o.id === String(a.destinoId)) : null;
+  const officeB = b.destinoId ? baseData.offices.find((o) => o.id === String(b.destinoId)) : null;
+  await Promise.all([
+    insertHistorial(a.id, 'intercambio', `Intercambiado con dispositivo ${b.id} → ${officeB?.name ?? '—'}`),
+    insertHistorial(b.id, 'intercambio', `Intercambiado con dispositivo ${a.id} → ${officeA?.name ?? '—'}`),
   ]);
 };
 
@@ -632,6 +678,45 @@ export const deleteDevice = async (id: string) => {
   const { error } = await supabase!.from('dispositivo').delete().eq('id', id);
   if (error) throw error;
   return { success: true };
+};
+
+export const retireDevice = async (id: string, motivo: string): Promise<void> => {
+  const { data: deviceRow, error: devErr } = await supabase!
+    .from('dispositivo')
+    .select('codigoInventario, tipoCodigo, destinoId, origenDescripcion')
+    .eq('id', id)
+    .single();
+  if (devErr) throw devErr;
+
+  const dev = deviceRow as Pick<DeviceRow, 'codigoInventario' | 'tipoCodigo' | 'destinoId' | 'origenDescripcion'>;
+
+  const [typeResult, officeResult] = await Promise.all([
+    supabase!.from('tipo_dispositivo').select('descripcion').eq('codigo', dev.tipoCodigo).single(),
+    dev.destinoId
+      ? supabase!.from('oficina').select('nombre, areaId').eq('id', dev.destinoId).single()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  if (typeResult.error) throw typeResult.error;
+  if (officeResult.error) throw officeResult.error;
+
+  const tipo = typeResult.data as { descripcion: string };
+  const office = officeResult.data as { nombre: string; areaId: number } | null;
+
+  if (!office) throw new Error('El dispositivo debe estar asignado a una oficina para dar de baja');
+
+  await supabase!.from('baja').insert([{
+    codigoInventario: dev.codigoInventario ?? null,
+    areaId: office.areaId,
+    descripcion: tipo.descripcion,
+    oficinaNombre: office.nombre,
+    origen: dev.origenDescripcion ?? null,
+    motivo,
+  }]);
+
+  await insertHistorial(Number(id), 'baja', `Dado de baja: ${motivo}`);
+
+  const { error: delErr } = await supabase!.from('dispositivo').delete().eq('id', id);
+  if (delErr) throw delErr;
 };
 
 // ─── Bajas ────────────────────────────────────────────────────────────────────

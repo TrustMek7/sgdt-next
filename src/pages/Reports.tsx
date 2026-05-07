@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FileText, Download } from 'lucide-react';
+import { FileText, Download, Table } from 'lucide-react';
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, Image as PDFImage, type ViewProps } from '@react-pdf/renderer';
+import * as XLSX from 'xlsx';
 import { useReports } from '../hooks/useReports';
 import { reportService } from '../services/reportService';
 import { ReportBatchFilter, ReportBatchItem, DeviceType, Device, Baja } from '../lib/types';
@@ -340,6 +341,48 @@ export function Reports() {
   const selectedDepName  = dependencias.find((d) => d.id === filterDepId)?.name;
   const fileName = `Reporte_${reportConfigs.length > 1 ? 'Multiple' : (selectedAreaName || selectedDepName)?.replace(/\s+/g, '_') || 'General'}.pdf`;
 
+  const exportToExcel = () => {
+    const wb = XLSX.utils.book_new();
+    for (const report of batchReports) {
+      const sheetName = (report.title || 'Reporte').slice(0, 31).replace(/[\\/:?*[\]]/g, '_');
+      const typeMap = new Map(report.deviceTypes.map((t) => [t.id, t]));
+      const newDevices = report.devices.filter((d) => d.status === 'New');
+      const transfers  = report.devices.filter((d) => d.status === 'Transfer');
+
+      const rows: (string | number)[][] = [];
+
+      rows.push(['NUEVOS']);
+      rows.push(['Código', 'Plan', 'Descripción', 'Características', 'Marca/Modelo']);
+      for (const d of newDevices) {
+        const t = typeMap.get(d.typeId);
+        rows.push([d.inventoryCode || '', d.planCode, t?.description || '', t?.characteristics || '', t?.brandModel || '']);
+      }
+      if (newDevices.length === 0) rows.push(['Sin registros']);
+
+      rows.push([]);
+      rows.push(['TRASLADOS']);
+      rows.push(['Código', 'Plan', 'Descripción', 'Características', 'Marca/Modelo', 'Origen']);
+      for (const d of transfers) {
+        const t = typeMap.get(d.typeId);
+        rows.push([d.inventoryCode || '', d.planCode, t?.description || '', t?.characteristics || '', t?.brandModel || '', d.originOfficeDescription || '']);
+      }
+      if (transfers.length === 0) rows.push(['Sin registros']);
+
+      rows.push([]);
+      rows.push(['BAJAS']);
+      rows.push(['Código', 'Descripción', 'Oficina', 'Origen', 'Motivo']);
+      for (const b of report.bajas) {
+        rows.push([b.inventoryCode || '', b.description, b.officeName, b.origin, b.reason]);
+      }
+      if (report.bajas.length === 0) rows.push(['Sin registros']);
+
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    }
+    const xlsxName = fileName.replace('.pdf', '.xlsx');
+    XLSX.writeFile(wb, xlsxName);
+  };
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Reportes</h1>
@@ -425,11 +468,16 @@ export function Reports() {
               <p className="text-sm text-gray-500">{batchReports.length} página(s) en el PDF</p>
             </div>
             {batchReports.length > 0 && (
-              <DownloadLink document={<ReportPDF reports={batchReports} baseUrl={baseUrl} />} fileName={fileName}>
-                <button className="btn-primary flex items-center gap-2">
-                  <Download className="w-4 h-4" /> Exportar PDF
+              <div className="flex items-center gap-2">
+                <DownloadLink document={<ReportPDF reports={batchReports} baseUrl={baseUrl} />} fileName={fileName}>
+                  <button className="btn-primary flex items-center gap-2">
+                    <Download className="w-4 h-4" /> Exportar PDF
+                  </button>
+                </DownloadLink>
+                <button onClick={exportToExcel} className="btn-secondary flex items-center gap-2">
+                  <Table className="w-4 h-4" /> Exportar Excel
                 </button>
-              </DownloadLink>
+              </div>
             )}
           </div>
 
