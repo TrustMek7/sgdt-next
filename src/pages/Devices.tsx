@@ -143,6 +143,7 @@ export function Devices() {
     try {
       if (editing) {
         const payload: DeviceUpdatePayload = {
+          inventoryCode: formData.inventoryCodes[0] || undefined,
           typeId: formData.typeId,
           destinationOfficeId: formData.destinationOfficeId || undefined,
           originOfficeDescription: formData.originOfficeDescription || undefined,
@@ -439,7 +440,14 @@ export function Devices() {
             </div>
           )}
 
-          {!editing && (
+          {editing ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Código de inventario</label>
+              <input type="text" value={formData.inventoryCodes[0] ?? ''}
+                onChange={(e) => setFormData({ ...formData, inventoryCodes: [e.target.value] })}
+                className="input-field" placeholder="Código de inventario (opcional)" />
+            </div>
+          ) : (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Códigos de inventario</label>
               <div className="space-y-2 max-h-40 overflow-y-auto">
