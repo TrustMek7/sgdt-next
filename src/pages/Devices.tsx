@@ -23,9 +23,10 @@ export function Devices() {
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [search,        setSearch]        = useState('');
-  const [filterDepId,   setFilterDepId]   = useState('');
-  const [filterAreaId,  setFilterAreaId]  = useState('');  // subgerencia
-  const [filterClasif,  setFilterClasif]  = useState('');
+  const [filterDepId,    setFilterDepId]    = useState('');
+  const [filterAreaId,   setFilterAreaId]   = useState('');  // subgerencia
+  const [filterOfficeId, setFilterOfficeId] = useState('');  // área
+  const [filterClasif,   setFilterClasif]   = useState('');
   const [filterStatus,  setFilterStatus]  = useState('');
   const [filterAsig,    setFilterAsig]    = useState('');
 
@@ -62,6 +63,12 @@ export function Devices() {
     ? areas.filter((a) => a.dependenciaId === filterDepId)
     : areas;
 
+  const filteredOfficesForFilter = filterAreaId
+    ? offices.filter((o) => o.areaId === filterAreaId)
+    : filterDepId
+      ? offices.filter((o) => filteredAreasForFilter.some((a) => a.id === o.areaId))
+      : offices;
+
   const filteredDevices = useMemo(() => devices.filter((d) => {
     if (search) {
       const q = search.toLowerCase();
@@ -75,9 +82,10 @@ export function Devices() {
       if (tipo?.clasificacionId !== filterClasif) return false;
     }
 
-    if (filterAreaId || filterDepId) {
+    if (filterOfficeId || filterAreaId || filterDepId) {
       const office = offices.find((o) => o.id === d.destinationOfficeId);
       if (!office) return filterAsig === 'pendiente' || !d.destinationOfficeId;
+      if (filterOfficeId && office.id !== filterOfficeId) return false;
       if (filterAreaId && office.areaId !== filterAreaId) return false;
       if (filterDepId) {
         const area = areas.find((a) => a.id === office.areaId);
@@ -85,7 +93,7 @@ export function Devices() {
       }
     }
     return true;
-  }), [devices, search, filterStatus, filterAsig, filterClasif, filterAreaId, filterDepId, offices, areas, deviceTypes]);
+  }), [devices, search, filterStatus, filterAsig, filterClasif, filterOfficeId, filterAreaId, filterDepId, offices, areas, deviceTypes]);
 
   const { paginatedItems: pagedDevices, page, setPage, pageSize, setPageSize, totalPages, totalItems } = usePagination(filteredDevices, 10);
 
@@ -254,13 +262,17 @@ export function Devices() {
             className="input-field pl-9 w-40" />
         </div>
         <select className="input-field w-36" value={filterDepId}
-          onChange={(e) => { setFilterDepId(e.target.value); setFilterAreaId(''); }}>
+          onChange={(e) => { setFilterDepId(e.target.value); setFilterAreaId(''); setFilterOfficeId(''); }}>
           <option value="">Dependencia</option>
           {dependencias.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
-        <select className="input-field w-48" value={filterAreaId} onChange={(e) => setFilterAreaId(e.target.value)}>
+        <select className="input-field w-48" value={filterAreaId} onChange={(e) => { setFilterAreaId(e.target.value); setFilterOfficeId(''); }}>
           <option value="">Subgerencia</option>
           {filteredAreasForFilter.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+        </select>
+        <select className="input-field w-48" value={filterOfficeId} onChange={(e) => setFilterOfficeId(e.target.value)}>
+          <option value="">Área</option>
+          {filteredOfficesForFilter.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
         <select className="input-field w-36" value={filterClasif} onChange={(e) => setFilterClasif(e.target.value)}>
           <option value="">Clasificación</option>
