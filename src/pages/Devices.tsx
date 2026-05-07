@@ -365,7 +365,7 @@ export function Devices() {
 
       {/* Create / Edit modal */}
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); resetForm(); setFormDepId(''); setFormAreaId(''); }}
-        title={editing ? 'Editar Dispositivo' : 'Nuevo Dispositivo'}>
+        title={editing ? `Editar Dispositivo ${editing.inventoryCode || editing.planCode}` : 'Nuevo Dispositivo'}>
         <div className="space-y-4">
           {!editing && (
             <div className="grid grid-cols-2 gap-3">
