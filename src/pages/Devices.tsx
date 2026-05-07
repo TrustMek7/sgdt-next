@@ -65,9 +65,7 @@ export function Devices() {
 
   const filteredOfficesForFilter = filterAreaId
     ? offices.filter((o) => o.areaId === filterAreaId)
-    : filterDepId
-      ? offices.filter((o) => filteredAreasForFilter.some((a) => a.id === o.areaId))
-      : offices;
+    : [];
 
   const filteredDevices = useMemo(() => devices.filter((d) => {
     if (search) {
