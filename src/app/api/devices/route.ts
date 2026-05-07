@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const response = await createDevice({
+      status: String(body?.status ?? '') as import('@/lib/types').Status,
       inventoryCode: body?.inventoryCode !== undefined ? String(body.inventoryCode) : undefined,
       inventoryCodes: Array.isArray(body?.inventoryCodes) ? body.inventoryCodes.map((value: unknown) => String(value)) : undefined,
       typeId: String(body?.typeId ?? ''),
