@@ -508,14 +508,12 @@ export function Reports() {
 
                       <PreviewTable
                         title={`Traslados (${section.transferDevices.length})`}
-                        cols={['Inventario', 'Plan', 'Descripción', 'Origen', 'Marca/Modelo', 'Imagen']}
+                        cols={['Inventario', 'Plan', 'Descripción', 'Origen']}
                         rows={section.transferDevices.map(({ device, type }) => [
                           device.inventoryCode || 'S/C',
                           type.planCode,
                           type.description,
                           device.originOfficeDescription || '-',
-                          type.brandModel || '-',
-                          type.imageUrl ? '🖼' : '-',
                         ])}
                       />
 
