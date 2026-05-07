@@ -55,6 +55,7 @@ export interface Device {
 }
 
 export interface DeviceCreatePayload {
+  status: Status;
   inventoryCode?: string;
   inventoryCodes?: string[];
   typeId: string;

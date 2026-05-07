@@ -123,7 +123,10 @@ export function Devices() {
   const handleSave = async () => {
     const errs: Record<string, string> = {};
     if (!formData.typeId) errs.typeId = 'Tipo es requerido';
+    if (!editing && !formData.status) errs.status = 'Estado es requerido';
     if (!editing && !formData.destinationOfficeId) errs.destinationOfficeId = 'Área es requerida';
+    if (!editing && formData.status === 'Transfer' && !formData.originOfficeDescription.trim())
+      errs.originOfficeDescription = 'Dirección de origen es requerida para traslados';
     if (Object.keys(errs).length) { setErrors(errs); return; }
     try {
       if (editing) {
@@ -136,6 +139,7 @@ export function Devices() {
         toast.success('Dispositivo actualizado');
       } else {
         const payload: DeviceCreatePayload = {
+          status: formData.status as 'New' | 'Transfer',
           typeId: formData.typeId,
           destinationOfficeId: formData.destinationOfficeId,
           originOfficeDescription: formData.originOfficeDescription || undefined,
@@ -324,11 +328,13 @@ export function Devices() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value, typeId: '' })} className="input-field">
-                  <option value="">Todos</option>
+                <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value, typeId: '' })}
+                  className={`input-field ${errors.status ? 'border-red-500' : ''}`}>
+                  <option value="">Seleccionar...</option>
                   <option value="New">Nuevo</option>
                   <option value="Transfer">Traslado</option>
                 </select>
+                {errors.status && <p className="text-red-500 text-sm mt-1">{errors.status}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
@@ -381,10 +387,12 @@ export function Devices() {
 
           {(formData.status === 'Transfer' || editing?.status === 'Transfer') && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Dirección de origen</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Dirección de origen {!editing && '*'}</label>
               <input type="text" value={formData.originOfficeDescription}
                 onChange={(e) => setFormData({ ...formData, originOfficeDescription: e.target.value })}
-                className="input-field" placeholder="Dirección o descripción del origen" />
+                className={`input-field ${errors.originOfficeDescription ? 'border-red-500' : ''}`}
+                placeholder="Dirección o descripción del origen" />
+              {errors.originOfficeDescription && <p className="text-red-500 text-sm mt-1">{errors.originOfficeDescription}</p>}
             </div>
           )}
 

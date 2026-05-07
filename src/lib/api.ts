@@ -557,7 +557,7 @@ export const createDevice = async (data: DeviceCreatePayload): Promise<DeviceCre
   const codes = inventoryCodes.length > 0
     ? inventoryCodes
     : Array.from({ length: quantity }, () => data.inventoryCode ?? null).filter((v): v is string => Boolean(v));
-  const estado: 'nuevo' | 'traslado' = data.originOfficeId || data.originOfficeDescription ? 'traslado' : 'nuevo';
+  const estado: 'nuevo' | 'traslado' = data.status === 'Transfer' ? 'traslado' : 'nuevo';
 
   const payload = codes.map((code) => ({
     codigoInventario: code,
