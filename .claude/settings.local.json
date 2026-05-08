@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"d:\\\\proyectos\\\\sgdt\\\\sgdt-next\\\\\" | head -30)",
+      "Read(//d/proyectos/sgdt/**)",
+      "Bash(xargs grep -l \"reassign\\\\|swap\\\\|unassign\\\\|retire\")",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(npx tsc *)"
+    ]
+  }
+}
