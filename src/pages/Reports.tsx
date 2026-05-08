@@ -25,7 +25,8 @@ const S = StyleSheet.create({
   date:          { color: '#666', fontSize: 8 },
 
   sectionTitle:  { fontSize: 10, fontWeight: 'bold', backgroundColor: '#E8EDF2', padding: '4 6', marginTop: 10, marginBottom: 4 },
-  areaTitle:     { fontSize: 12, fontWeight: 'bold', backgroundColor: '#D0D8E4', padding: '5 8', marginTop: 14, marginBottom: 6 },
+  areaTitle:     { fontSize: 12, fontWeight: 'bold', backgroundColor: '#D0D8E4', padding: '5 8', marginTop: 14, marginBottom: 4 },
+  officeTitle:   { fontSize: 10, fontWeight: 'bold', backgroundColor: '#EEF2F7', padding: '4 8', marginTop: 8, marginBottom: 4, borderLeft: '3pt solid #8BA4C0' },
   summaryBox:    { flexDirection: 'row', gap: 8, marginBottom: 8 },
   summaryItem:   { flex: 1, border: '1pt solid #ccc', padding: '4 6', borderRadius: 3 },
   summaryLabel:  { fontSize: 7, color: '#666', marginBottom: 1 },
@@ -92,38 +93,51 @@ function DeviceImageCell({ url, baseUrl }: { url?: string; baseUrl: string }) {
 
 // ─── Per-area data builders ───────────────────────────────────────────────────
 
+type OfficeSection = {
+  officeId: string;
+  officeName: string;
+  newDevices: { device: Device; type: DeviceType }[];
+  transferDevices: { device: Device; type: DeviceType }[];
+};
+
 type AreaSection = {
   areaId: string;
   areaName: string;
-  newDevices: { device: Device; type: DeviceType }[];
-  transferDevices: { device: Device; type: DeviceType }[];
+  offices: OfficeSection[];
   bajas: Baja[];
 };
 
 function buildAreaSections(report: ReportBatchItem): AreaSection[] {
+  const getType = (d: Device) => report.deviceTypes.find((t) => t.id === d.typeId);
+
   return report.areas.map((area) => {
-    const areaOfficeIds = new Set(
-      report.offices.filter((o) => o.areaId === area.id).map((o) => o.id),
-    );
-    const areaDevices = report.devices.filter(
-      (d) => d.asignacion === 'asignado' && areaOfficeIds.has(d.destinationOfficeId),
-    );
-    const getType = (d: Device) => report.deviceTypes.find((t) => t.id === d.typeId);
+    const areaOffices = report.offices.filter((o) => o.areaId === area.id);
+
+    const offices: OfficeSection[] = areaOffices.map((office) => {
+      const officeDevices = report.devices.filter(
+        (d) => d.asignacion === 'asignado' && d.destinationOfficeId === office.id,
+      );
+      return {
+        officeId: office.id,
+        officeName: office.name,
+        newDevices: officeDevices
+          .filter((d) => d.status === 'New')
+          .map((d) => ({ device: d, type: getType(d) }))
+          .filter((x): x is { device: Device; type: DeviceType } => Boolean(x.type)),
+        transferDevices: officeDevices
+          .filter((d) => d.status === 'Transfer')
+          .map((d) => ({ device: d, type: getType(d) }))
+          .filter((x): x is { device: Device; type: DeviceType } => Boolean(x.type)),
+      };
+    }).filter((s) => s.newDevices.length > 0 || s.transferDevices.length > 0);
 
     return {
       areaId: area.id,
       areaName: area.name,
-      newDevices: areaDevices
-        .filter((d) => d.status === 'New')
-        .map((d) => ({ device: d, type: getType(d) }))
-        .filter((x): x is { device: Device; type: DeviceType } => Boolean(x.type)),
-      transferDevices: areaDevices
-        .filter((d) => d.status === 'Transfer')
-        .map((d) => ({ device: d, type: getType(d) }))
-        .filter((x): x is { device: Device; type: DeviceType } => Boolean(x.type)),
+      offices,
       bajas: report.bajas.filter((b) => b.areaId === area.id),
     };
-  }).filter((s) => s.newDevices.length > 0 || s.transferDevices.length > 0 || s.bajas.length > 0);
+  }).filter((s) => s.offices.length > 0 || s.bajas.length > 0);
 }
 
 // ─── PDF Document ─────────────────────────────────────────────────────────────
@@ -162,62 +176,69 @@ function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: 
               </View>
             </View>
 
-            {/* Sections per subgerencia */}
+            {/* Sections per subgerencia → oficina */}
             {sections.map((section) => (
               <View key={section.areaId}>
                 <Text style={S.areaTitle}>{section.areaName}</Text>
 
-                {/* Table 1: Nuevos */}
-                <Text style={S.sectionTitle}>DISPOSITIVOS NUEVOS ({section.newDevices.length})</Text>
-                {section.newDevices.length === 0 ? (
-                  <Text style={S.noData}>Sin registros</Text>
-                ) : (
-                  <View style={S.table}>
-                    <TableHeader cols={[
-                      { label: 'INVENTARIO',      style: S.colCode },
-                      { label: 'PLAN',            style: S.colPlan },
-                      { label: 'DESCRIPCIÓN',     style: S.colDesc },
-                      { label: 'CARACTERÍSTICAS', style: S.colChar },
-                      { label: 'MARCA / MODELO',  style: S.colBrand },
-                      { label: 'IMAGEN',          style: S.colImg },
-                    ]} />
-                    {section.newDevices.map(({ device, type }, i) => (
-                      <View key={i} style={S.row} wrap={false}>
-                        <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
-                        <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
-                        <View style={[S.cell, S.colDesc]}><Text style={S.cellText}>{type.description}</Text></View>
-                        <View style={[S.cell, S.colChar]}><Text style={S.cellText}>{type.characteristics || '-'}</Text></View>
-                        <View style={[S.cell, S.colBrand]}><Text style={S.cellText}>{type.brandModel || '-'}</Text></View>
-                        <DeviceImageCell url={type.imageUrl} baseUrl={baseUrl} />
-                      </View>
-                    ))}
-                  </View>
-                )}
+                {/* Per-office device tables */}
+                {section.offices.map((office) => (
+                  <View key={office.officeId}>
+                    <Text style={S.officeTitle}>{office.officeName}</Text>
 
-                {/* Table 2: Traslados */}
-                <Text style={S.sectionTitle}>DISPOSITIVOS DE TRASLADO ({section.transferDevices.length})</Text>
-                {section.transferDevices.length === 0 ? (
-                  <Text style={S.noData}>Sin registros</Text>
-                ) : (
-                  <View style={S.table}>
-                    <TableHeader cols={[
-                      { label: 'INVENTARIO',  style: S.colCode },
-                      { label: 'PLAN',        style: S.colPlan },
-                      { label: 'DESCRIPCIÓN', style: { width: '38%' } },
-                      { label: 'ORIGEN',      style: { width: '38%' } },
-                    ]} />
-                    {section.transferDevices.map(({ device, type }, i) => (
-                      <View key={i} style={S.row} wrap={false}>
-                        <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
-                        <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
-                        <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{type.description}</Text></View>
-                        <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{device.originOfficeDescription || '-'}</Text></View>
+                    {/* Table 1: Nuevos */}
+                    <Text style={S.sectionTitle}>DISPOSITIVOS NUEVOS ({office.newDevices.length})</Text>
+                    {office.newDevices.length === 0 ? (
+                      <Text style={S.noData}>Sin registros</Text>
+                    ) : (
+                      <View style={S.table}>
+                        <TableHeader cols={[
+                          { label: 'INVENTARIO',      style: S.colCode },
+                          { label: 'PLAN',            style: S.colPlan },
+                          { label: 'DESCRIPCIÓN',     style: S.colDesc },
+                          { label: 'CARACTERÍSTICAS', style: S.colChar },
+                          { label: 'MARCA / MODELO',  style: S.colBrand },
+                          { label: 'IMAGEN',          style: S.colImg },
+                        ]} />
+                        {office.newDevices.map(({ device, type }, i) => (
+                          <View key={i} style={S.row} wrap={false}>
+                            <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
+                            <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
+                            <View style={[S.cell, S.colDesc]}><Text style={S.cellText}>{type.description}</Text></View>
+                            <View style={[S.cell, S.colChar]}><Text style={S.cellText}>{type.characteristics || '-'}</Text></View>
+                            <View style={[S.cell, S.colBrand]}><Text style={S.cellText}>{type.brandModel || '-'}</Text></View>
+                            <DeviceImageCell url={type.imageUrl} baseUrl={baseUrl} />
+                          </View>
+                        ))}
                       </View>
-                    ))}
-                  </View>
-                )}
+                    )}
 
-                {/* Table 3: Bajas — 6 columns */}
+                    {/* Table 2: Traslados */}
+                    <Text style={S.sectionTitle}>DISPOSITIVOS DE TRASLADO ({office.transferDevices.length})</Text>
+                    {office.transferDevices.length === 0 ? (
+                      <Text style={S.noData}>Sin registros</Text>
+                    ) : (
+                      <View style={S.table}>
+                        <TableHeader cols={[
+                          { label: 'INVENTARIO',  style: S.colCode },
+                          { label: 'PLAN',        style: S.colPlan },
+                          { label: 'DESCRIPCIÓN', style: { width: '38%' } },
+                          { label: 'ORIGEN',      style: { width: '38%' } },
+                        ]} />
+                        {office.transferDevices.map(({ device, type }, i) => (
+                          <View key={i} style={S.row} wrap={false}>
+                            <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
+                            <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
+                            <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{type.description}</Text></View>
+                            <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{device.originOfficeDescription || '-'}</Text></View>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                ))}
+
+                {/* Table 3: Bajas al nivel de subgerencia */}
                 <Text style={S.sectionTitle}>BAJAS ({section.bajas.length})</Text>
                 {section.bajas.length === 0 ? (
                   <Text style={S.noData}>Sin registros</Text>
@@ -268,10 +289,11 @@ export function Reports() {
   const { dependencias, areas, offices } = useReports();
 
   // Cascading filter state
-  const [filterDepId, setFilterDepId]     = useState('');
-  const [filterAreaId, setFilterAreaId]   = useState('');
-  const [filterFloor, setFilterFloor]     = useState('');
-  const [statusFilter, setStatusFilter]   = useState<'Todos' | 'New' | 'Transfer'>('Todos');
+  const [filterDepId, setFilterDepId]       = useState('');
+  const [filterAreaId, setFilterAreaId]     = useState('');
+  const [filterOfficeId, setFilterOfficeId] = useState('');
+  const [filterFloor, setFilterFloor]       = useState('');
+  const [statusFilter, setStatusFilter]     = useState<'Todos' | 'New' | 'Transfer'>('Todos');
 
   const [reportConfigs, setReportConfigs] = useState<ReportBatchFilter[]>([]);
   const [batchReports, setBatchReports]   = useState<ReportBatchItem[]>([]);
@@ -285,17 +307,23 @@ export function Reports() {
     ? areas.filter((a) => a.dependenciaId === filterDepId)
     : areas;
 
-  // Floors available given selected area/dependencia
-  const filteredOffices = offices.filter((o) => {
+  // Offices cascading from selected subgerencia / dependencia
+  const filteredOfficesForSelect = offices.filter((o) => {
     if (filterAreaId && o.areaId !== filterAreaId) return false;
     if (filterDepId && !filteredAreas.some((a) => a.id === o.areaId)) return false;
     return true;
   });
-  const allFloors = Array.from(new Set(filteredOffices.map((o) => o.floor))).sort((a, b) => a - b);
+
+  // Floors available given selected office / area / dependencia
+  const floorsSource = filterOfficeId
+    ? offices.filter((o) => o.id === filterOfficeId)
+    : filteredOfficesForSelect;
+  const allFloors = Array.from(new Set(floorsSource.map((o) => o.floor))).sort((a, b) => a - b);
 
   const currentFilter: ReportBatchFilter = {
-    dependenciaId: filterDepId || undefined,
-    areaId:        filterAreaId || undefined,
+    dependenciaId: filterDepId    || undefined,
+    areaId:        filterAreaId   || undefined,
+    officeId:      filterOfficeId || undefined,
     floor:         filterFloor ? Number(filterFloor) : undefined,
     status:        statusFilter,
   };
@@ -304,13 +332,14 @@ export function Reports() {
     const parts: string[] = [];
     if (f.dependenciaId) parts.push(dependencias.find((d) => d.id === f.dependenciaId)?.name || `Dep ${f.dependenciaId}`);
     if (f.areaId)        parts.push(areas.find((a) => a.id === f.areaId)?.name || `Sub ${f.areaId}`);
+    if (f.officeId)      parts.push(offices.find((o) => o.id === f.officeId)?.name || `Área ${f.officeId}`);
     if (f.floor)         parts.push(`Piso ${f.floor}`);
     if (f.status && f.status !== 'Todos') parts.push(f.status === 'New' ? 'Nuevos' : 'Traslados');
     return parts.length > 0 ? parts.join(' / ') : 'Reporte general';
   };
 
   const addReportConfig = () => {
-    if (!filterDepId && !filterAreaId && !filterFloor && statusFilter === 'Todos') return;
+    if (!filterDepId && !filterAreaId && !filterOfficeId && !filterFloor && statusFilter === 'Todos') return;
     setReportConfigs((prev) => [...prev, { ...currentFilter, title: describeFilter(currentFilter) }]);
     setShowPreview(false);
   };
@@ -334,44 +363,46 @@ export function Reports() {
     }
   };
 
-  const selectedAreaName = areas.find((a) => a.id === filterAreaId)?.name;
-  const selectedDepName  = dependencias.find((d) => d.id === filterDepId)?.name;
-  const fileName = `Reporte_${reportConfigs.length > 1 ? 'Multiple' : (selectedAreaName || selectedDepName)?.replace(/\s+/g, '_') || 'General'}.pdf`;
+  const selectedOfficeName = offices.find((o) => o.id === filterOfficeId)?.name;
+  const selectedAreaName   = areas.find((a) => a.id === filterAreaId)?.name;
+  const selectedDepName    = dependencias.find((d) => d.id === filterDepId)?.name;
+  const fileName = `Reporte_${reportConfigs.length > 1 ? 'Multiple' : (selectedOfficeName || selectedAreaName || selectedDepName)?.replace(/\s+/g, '_') || 'General'}.pdf`;
 
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
     for (const report of batchReports) {
       const sheetName = (report.title || 'Reporte').slice(0, 31).replace(/[\\/:?*[\]]/g, '_');
-      const typeMap = new Map(report.deviceTypes.map((t) => [t.id, t]));
-      const newDevices = report.devices.filter((d) => d.status === 'New');
-      const transfers  = report.devices.filter((d) => d.status === 'Transfer');
-
+      const sections = buildAreaSections(report);
       const rows: (string | number)[][] = [];
 
-      rows.push(['NUEVOS']);
-      rows.push(['Código', 'Plan', 'Descripción', 'Características', 'Marca/Modelo']);
-      for (const d of newDevices) {
-        const t = typeMap.get(d.typeId);
-        rows.push([d.inventoryCode || '', d.planCode, t?.description || '', t?.characteristics || '', t?.brandModel || '']);
+      for (const section of sections) {
+        rows.push([`SUBGERENCIA: ${section.areaName}`]);
+        rows.push([]);
+        for (const office of section.offices) {
+          rows.push([`  ÁREA: ${office.officeName}`]);
+          rows.push(['  NUEVOS']);
+          rows.push(['  Código', 'Plan', 'Descripción', 'Características', 'Marca/Modelo']);
+          for (const { device, type } of office.newDevices) {
+            rows.push([`  ${device.inventoryCode || ''}`, type.planCode, type.description, type.characteristics || '', type.brandModel || '']);
+          }
+          if (office.newDevices.length === 0) rows.push(['  Sin registros']);
+          rows.push([]);
+          rows.push(['  TRASLADOS']);
+          rows.push(['  Código', 'Plan', 'Descripción', 'Origen']);
+          for (const { device, type } of office.transferDevices) {
+            rows.push([`  ${device.inventoryCode || ''}`, type.planCode, type.description, device.originOfficeDescription || '']);
+          }
+          if (office.transferDevices.length === 0) rows.push(['  Sin registros']);
+          rows.push([]);
+        }
+        rows.push([`  BAJAS (${section.areaName})`]);
+        rows.push(['  Código', 'Descripción', 'Oficina', 'Origen', 'Motivo']);
+        for (const b of section.bajas) {
+          rows.push([`  ${b.inventoryCode || ''}`, b.description, b.officeName, b.origin, b.reason]);
+        }
+        if (section.bajas.length === 0) rows.push(['  Sin registros']);
+        rows.push([]); rows.push([]);
       }
-      if (newDevices.length === 0) rows.push(['Sin registros']);
-
-      rows.push([]);
-      rows.push(['TRASLADOS']);
-      rows.push(['Código', 'Plan', 'Descripción', 'Características', 'Marca/Modelo', 'Origen']);
-      for (const d of transfers) {
-        const t = typeMap.get(d.typeId);
-        rows.push([d.inventoryCode || '', d.planCode, t?.description || '', t?.characteristics || '', t?.brandModel || '', d.originOfficeDescription || '']);
-      }
-      if (transfers.length === 0) rows.push(['Sin registros']);
-
-      rows.push([]);
-      rows.push(['BAJAS']);
-      rows.push(['Código', 'Descripción', 'Oficina', 'Origen', 'Motivo']);
-      for (const b of report.bajas) {
-        rows.push([b.inventoryCode || '', b.description, b.officeName, b.origin, b.reason]);
-      }
-      if (report.bajas.length === 0) rows.push(['Sin registros']);
 
       const ws = XLSX.utils.aoa_to_sheet(rows);
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
@@ -402,9 +433,19 @@ export function Reports() {
           <div className="flex-1 min-w-[180px]">
             <label className="block text-sm font-medium text-gray-700 mb-1">Subgerencia</label>
             <select className="input-field" value={filterAreaId}
-              onChange={(e) => { setFilterAreaId(e.target.value); setFilterFloor(''); }}>
+              onChange={(e) => { setFilterAreaId(e.target.value); setFilterOfficeId(''); setFilterFloor(''); }}>
               <option value="">Todas las subgerencias</option>
               {filteredAreas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </div>
+
+          {/* Área (oficina específica) */}
+          <div className="flex-1 min-w-[180px]">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Área</label>
+            <select className="input-field" value={filterOfficeId}
+              onChange={(e) => { setFilterOfficeId(e.target.value); setFilterFloor(''); }}>
+              <option value="">Todas las áreas</option>
+              {filteredOfficesForSelect.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           </div>
 
@@ -490,45 +531,59 @@ export function Reports() {
                     </p>
                   </div>
                   {sections.map((section) => (
-                    <div key={section.areaId} className="p-6 border-b border-gray-100 last:border-0 space-y-4">
-                      <h4 className="font-semibold text-gray-800">{section.areaName}</h4>
+                    <div key={section.areaId} className="border-b border-gray-100 last:border-0">
+                      {/* Cabecera subgerencia */}
+                      <div className="px-6 py-3 bg-blue-50 border-b border-blue-100">
+                        <h4 className="font-semibold text-blue-900 text-sm">{section.areaName}</h4>
+                      </div>
 
-                      <PreviewTable
-                        title={`Nuevos (${section.newDevices.length})`}
-                        cols={['Inventario', 'Plan', 'Descripción', 'Características', 'Marca/Modelo', 'Imagen']}
-                        rows={section.newDevices.map(({ device, type }) => [
-                          device.inventoryCode || 'S/C',
-                          type.planCode,
-                          type.description,
-                          type.characteristics || '-',
-                          type.brandModel || '-',
-                          type.imageUrl ? '🖼' : '-',
-                        ])}
-                      />
+                      {/* Bloques por oficina/área */}
+                      {section.offices.map((office) => (
+                        <div key={office.officeId} className="px-6 py-4 border-b border-gray-100 last:border-0 space-y-3 ml-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1 h-4 bg-blue-400 rounded" />
+                            <h5 className="font-medium text-gray-700 text-sm">{office.officeName}</h5>
+                          </div>
+                          <PreviewTable
+                            title={`Nuevos (${office.newDevices.length})`}
+                            cols={['Inventario', 'Plan', 'Descripción', 'Características', 'Marca/Modelo', 'Imagen']}
+                            rows={office.newDevices.map(({ device, type }) => [
+                              device.inventoryCode || 'S/C',
+                              type.planCode,
+                              type.description,
+                              type.characteristics || '-',
+                              type.brandModel || '-',
+                              type.imageUrl ? '🖼' : '-',
+                            ])}
+                          />
+                          <PreviewTable
+                            title={`Traslados (${office.transferDevices.length})`}
+                            cols={['Inventario', 'Plan', 'Descripción', 'Origen']}
+                            rows={office.transferDevices.map(({ device, type }) => [
+                              device.inventoryCode || 'S/C',
+                              type.planCode,
+                              type.description,
+                              device.originOfficeDescription || '-',
+                            ])}
+                          />
+                        </div>
+                      ))}
 
-                      <PreviewTable
-                        title={`Traslados (${section.transferDevices.length})`}
-                        cols={['Inventario', 'Plan', 'Descripción', 'Origen']}
-                        rows={section.transferDevices.map(({ device, type }) => [
-                          device.inventoryCode || 'S/C',
-                          type.planCode,
-                          type.description,
-                          device.originOfficeDescription || '-',
-                        ])}
-                      />
-
-                      <PreviewTable
-                        title={`Bajas (${section.bajas.length})`}
-                        cols={['Subgerencia', 'Inventario', 'Descripción', 'Oficina', 'Origen', 'Motivo']}
-                        rows={section.bajas.map((b) => [
-                          b.areaName || section.areaName,
-                          b.inventoryCode || 'S/C',
-                          b.description,
-                          b.officeName || '-',
-                          b.origin || '-',
-                          b.reason || '-',
-                        ])}
-                      />
+                      {/* Bajas al nivel de subgerencia */}
+                      <div className="px-6 py-4 space-y-3">
+                        <PreviewTable
+                          title={`Bajas (${section.bajas.length})`}
+                          cols={['Subgerencia', 'Inventario', 'Descripción', 'Oficina', 'Origen', 'Motivo']}
+                          rows={section.bajas.map((b) => [
+                            b.areaName || section.areaName,
+                            b.inventoryCode || 'S/C',
+                            b.description,
+                            b.officeName || '-',
+                            b.origin || '-',
+                            b.reason || '-',
+                          ])}
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -195,6 +195,7 @@ export type ReportGroupBy = 'area' | 'subgerencia' | 'dependencia' | 'piso';
 
 export interface ReportBatchFilter {
   floor?: number;
+  officeId?: string;
   areaId?: string;
   dependenciaId?: string;
   clasificacionId?: string;
