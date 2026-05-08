@@ -80,7 +80,19 @@ export interface DeviceUpdatePayload {
   asignacion?: Asignacion;
 }
 
-export type HistorialAccion = 'creacion' | 'reasignacion' | 'intercambio' | 'baja';
+export type HistorialAccion = 'creacion' | 'reasignacion' | 'intercambio' | 'baja' | 'desasignacion';
+
+export interface TrasladoRegistro {
+  id: string;
+  dispositivoId: string;
+  codigoInventario?: string;
+  origenOficinaId?: string;
+  origenOficinaNombre: string;
+  destinoOficinaId?: string;
+  destinoOficinaNombre?: string;
+  accion: 'reasignacion' | 'intercambio' | 'edicion';
+  createdAt: string;
+}
 
 export interface DeviceHistorialEntry {
   id: string;

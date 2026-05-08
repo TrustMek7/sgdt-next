@@ -1,15 +1,16 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Plus, Edit, Trash2, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, AlertCircle, History, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '../components/Modal';
 import { Pagination } from '../components/Pagination';
 import { getErrorMessage } from '../lib/errorMessages';
-import { Office } from '../lib/types';
+import { Office, TrasladoRegistro } from '../lib/types';
 import { useOffices } from '../hooks/useOffices';
 import { useDependencias } from '../hooks/useDependencias';
 import { usePagination } from '../hooks/usePagination';
+import { officeService } from '../services/officeService';
 
 export function Offices() {
   const { offices, areas, loading, createOffice, updateOffice, deleteOffice } = useOffices();
@@ -24,6 +25,9 @@ export function Offices() {
   const [toDelete, setToDelete]         = useState<Office | null>(null);
   const [form, setForm]                 = useState({ name: '', floor: '', depId: '', areaId: '' });
   const [errors, setErrors]             = useState<Record<string, string>>({});
+  const [trasladoOffice, setTrasladoOffice] = useState<Office | null>(null);
+  const [trasladoData, setTrasladoData]     = useState<TrasladoRegistro[]>([]);
+  const [trasladoLoading, setTrasladoLoading] = useState(false);
 
   // Cascading filter selects
   const filteredAreasForFilter = filterDepId
@@ -87,6 +91,20 @@ export function Offices() {
     } catch (err) { toast.error(`No se pudo eliminar el área: ${getErrorMessage(err)}`); }
   };
 
+  const openTrasladoModal = async (office: Office) => {
+    setTrasladoOffice(office);
+    setTrasladoLoading(true);
+    setTrasladoData([]);
+    try {
+      const data = await officeService.getTrasladoRegistro(office.id);
+      setTrasladoData(Array.isArray(data) ? data : []);
+    } catch {
+      toast.error('No se pudo cargar el registro de traslados');
+    } finally {
+      setTrasladoLoading(false);
+    }
+  };
+
   const areaName  = (id: string) => areas.find((a) => a.id === id)?.name ?? '-';
   const depName   = (areaId: string) => {
     const depId = areas.find((a) => a.id === areaId)?.dependenciaId;
@@ -144,6 +162,7 @@ export function Offices() {
                   </td>
                   <td className="px-6 py-4 text-center">
                     <div className="flex justify-center gap-2">
+                      <button onClick={() => openTrasladoModal(office)} className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition" title="Registro de Traslados"><History className="w-4 h-4" /></button>
                       <button onClick={() => openEdit(office)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Editar"><Edit className="w-4 h-4" /></button>
                       <button onClick={() => { setToDelete(office); setIsDeleteOpen(true); }} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition" title="Eliminar"><Trash2 className="w-4 h-4" /></button>
                     </div>
@@ -201,6 +220,85 @@ export function Offices() {
             <button onClick={() => { setIsModalOpen(false); reset(); }} className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg hover:bg-gray-50 transition">Cancelar</button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!trasladoOffice}
+        onClose={() => { setTrasladoOffice(null); setTrasladoData([]); }}
+        title={`Registro de Traslados — ${trasladoOffice?.name ?? ''}`}
+      >
+        {trasladoLoading ? (
+          <div className="py-10 text-center text-gray-500 text-sm">Cargando...</div>
+        ) : trasladoData.length === 0 ? (
+          <div className="py-10 text-center text-gray-400 text-sm">Sin registros de traslados para esta oficina</div>
+        ) : (() => {
+          const salidas  = trasladoData.filter((r) => r.origenOficinaId === trasladoOffice?.id);
+          const entradas = trasladoData.filter((r) => r.destinoOficinaId === trasladoOffice?.id);
+          const fmtDate  = (iso: string) => new Date(iso).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+          const accionLabel = (a: string) => ({ reasignacion: 'Reasignación', intercambio: 'Intercambio', edicion: 'Edición' })[a] ?? a;
+          return (
+            <div className="space-y-6">
+              {salidas.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1">
+                    <ArrowRight className="w-4 h-4 text-orange-500" /> Salidas ({salidas.length})
+                  </h3>
+                  <div className="overflow-x-auto rounded-lg border border-gray-100">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-gray-50 text-gray-500">
+                        <tr>
+                          <th className="px-3 py-2">Código</th>
+                          <th className="px-3 py-2">Destino</th>
+                          <th className="px-3 py-2">Acción</th>
+                          <th className="px-3 py-2">Fecha</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {salidas.map((r) => (
+                          <tr key={r.id} className="hover:bg-orange-50">
+                            <td className="px-3 py-2 font-mono">{r.codigoInventario ?? '—'}</td>
+                            <td className="px-3 py-2">{r.destinoOficinaNombre ?? '—'}</td>
+                            <td className="px-3 py-2"><span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">{accionLabel(r.accion)}</span></td>
+                            <td className="px-3 py-2 text-gray-500">{fmtDate(r.createdAt)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              {entradas.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1">
+                    <ArrowRight className="w-4 h-4 text-green-500 rotate-180" /> Entradas ({entradas.length})
+                  </h3>
+                  <div className="overflow-x-auto rounded-lg border border-gray-100">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-gray-50 text-gray-500">
+                        <tr>
+                          <th className="px-3 py-2">Código</th>
+                          <th className="px-3 py-2">Origen</th>
+                          <th className="px-3 py-2">Acción</th>
+                          <th className="px-3 py-2">Fecha</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {entradas.map((r) => (
+                          <tr key={r.id} className="hover:bg-green-50">
+                            <td className="px-3 py-2 font-mono">{r.codigoInventario ?? '—'}</td>
+                            <td className="px-3 py-2">{r.origenOficinaNombre}</td>
+                            <td className="px-3 py-2"><span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700">{accionLabel(r.accion)}</span></td>
+                            <td className="px-3 py-2 text-gray-500">{fmtDate(r.createdAt)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </Modal>
 
       <Modal isOpen={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} title="Confirmar Eliminación">

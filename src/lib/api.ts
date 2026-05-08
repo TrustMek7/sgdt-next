@@ -22,6 +22,7 @@ import {
   AreaReportBajaRow,
   DeviceHistorialEntry,
   HistorialAccion,
+  TrasladoRegistro,
 } from './types';
 
 // ─── Row types (DB shape) ─────────────────────────────────────────────────────
@@ -567,6 +568,24 @@ const insertHistorial = async (dispositivoId: number, accion: HistorialAccion, d
   await supabase!.from('dispositivo_historial').insert([{ dispositivoId, accion, detalle: detalle ?? null }]);
 };
 
+const insertTrasladoRegistro = async (
+  dispositivoId: number,
+  codigoInventario: string | null,
+  origen: { id: number | null; nombre: string },
+  destino: { id: number | null; nombre: string },
+  accion: 'reasignacion' | 'intercambio' | 'edicion',
+) => {
+  await supabase!.from('registro_traslados').insert([{
+    dispositivoId,
+    codigoInventario,
+    origenOficinaId: origen.id,
+    origenOficinaNombre: origen.nombre,
+    destinoOficinaId: destino.id,
+    destinoOficinaNombre: destino.nombre,
+    accion,
+  }]);
+};
+
 export const getDeviceHistory = async (id: string): Promise<DeviceHistorialEntry[]> => {
   const { data, error } = await supabase!
     .from('dispositivo_historial')
@@ -579,6 +598,32 @@ export const getDeviceHistory = async (id: string): Promise<DeviceHistorialEntry
     dispositivoId: String(r.dispositivoId),
     accion: r.accion as HistorialAccion,
     detalle: r.detalle ?? undefined,
+    createdAt: r.createdAt,
+  }));
+};
+
+export const getOfficeTrasladoRegistro = async (officeId: string): Promise<TrasladoRegistro[]> => {
+  const id = Number(officeId);
+  const { data, error } = await supabase!
+    .from('registro_traslados')
+    .select('*')
+    .or(`origenOficinaId.eq.${id},destinoOficinaId.eq.${id}`)
+    .order('createdAt', { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as {
+    id: number; dispositivoId: number; codigoInventario: string | null;
+    origenOficinaId: number | null; origenOficinaNombre: string;
+    destinoOficinaId: number | null; destinoOficinaNombre: string | null;
+    accion: string; createdAt: string;
+  }[]).map((r) => ({
+    id: String(r.id),
+    dispositivoId: String(r.dispositivoId),
+    codigoInventario: r.codigoInventario ?? undefined,
+    origenOficinaId: r.origenOficinaId != null ? String(r.origenOficinaId) : undefined,
+    origenOficinaNombre: r.origenOficinaNombre,
+    destinoOficinaId: r.destinoOficinaId != null ? String(r.destinoOficinaId) : undefined,
+    destinoOficinaNombre: r.destinoOficinaNombre ?? undefined,
+    accion: r.accion as TrasladoRegistro['accion'],
     createdAt: r.createdAt,
   }));
 };
@@ -626,14 +671,57 @@ export const updateDevice = async (id: string, data: DeviceUpdatePayload): Promi
   if (data.asignacion !== undefined) payload.asignacion = data.asignacion;
   if (data.originOfficeId !== undefined || data.originOfficeDescription !== undefined) payload.estado = 'traslado';
 
+  // Capturar oficina previa si va a cambiar el destino
+  let prevDestino: { id: number | null; nombre: string } | null = null;
+  if (data.destinationOfficeId !== undefined) {
+    const { data: prev } = await supabase!.from('dispositivo')
+      .select('destinoId, codigoInventario').eq('id', id).single();
+    if (prev) {
+      const prevRow = prev as { destinoId: number | null; codigoInventario: string | null };
+      if (prevRow.destinoId && String(prevRow.destinoId) !== String(data.destinationOfficeId)) {
+        const baseData = await loadBaseData();
+        const prevOffice = baseData.offices.find((o) => o.id === String(prevRow.destinoId));
+        prevDestino = { id: prevRow.destinoId, nombre: prevOffice?.name ?? String(prevRow.destinoId) };
+      }
+    }
+  }
+
   const { data: res, error } = await supabase!.from('dispositivo').update(payload).eq('id', id).select('*').single();
   if (error) throw error;
 
   const baseData = await loadBaseData();
-  return mapDevice(res as DeviceRow, new Map(baseData.offices.map((o) => [o.id, o] as const)));
+  const device = mapDevice(res as DeviceRow, new Map(baseData.offices.map((o) => [o.id, o] as const)));
+
+  if (prevDestino && data.destinationOfficeId) {
+    const newOffice = baseData.offices.find((o) => o.id === data.destinationOfficeId);
+    const row = res as DeviceRow;
+    await insertTrasladoRegistro(
+      Number(id),
+      row.codigoInventario ?? null,
+      prevDestino,
+      { id: Number(data.destinationOfficeId), nombre: newOffice?.name ?? data.destinationOfficeId },
+      'edicion',
+    );
+  }
+
+  return device;
 };
 
 export const unassignDevice = async (id: string): Promise<Device> => {
+  const { data: prev } = await supabase!.from('dispositivo')
+    .select('destinoId').eq('id', id).single();
+  const prevRow = prev as { destinoId: number | null } | null;
+
+  if (prevRow?.destinoId) {
+    const baseData = await loadBaseData();
+    const prevOffice = baseData.offices.find((o) => o.id === String(prevRow.destinoId));
+    await insertHistorial(
+      Number(id),
+      'desasignacion',
+      JSON.stringify({ oficinaId: prevRow.destinoId, oficinaNombre: prevOffice?.name ?? String(prevRow.destinoId) }),
+    );
+  }
+
   const { data: res, error } = await supabase!.from('dispositivo')
     .update({ asignacion: 'pendiente', destinoId: null })
     .eq('id', id).select('*').single();
@@ -647,19 +735,45 @@ export const reassignDevice = async (id: string, destinationOfficeId: string): P
     .update({ asignacion: 'asignado', destinoId: Number(destinationOfficeId) })
     .eq('id', id).select('*').single();
   if (error) throw error;
+
   const baseData = await loadBaseData();
   const office = baseData.offices.find((o) => o.id === destinationOfficeId);
   await insertHistorial(Number(id), 'reasignacion', `Reasignado a ${office?.name ?? destinationOfficeId}`);
+
+  // Recuperar la oficina de origen desde la última entrada 'desasignacion' del historial
+  const { data: histRows } = await supabase!
+    .from('dispositivo_historial')
+    .select('accion, detalle')
+    .eq('dispositivoId', Number(id))
+    .order('createdAt', { ascending: false })
+    .limit(2); // la 'reasignacion' que acabamos de insertar + la 'desasignacion' previa
+
+  const histList = (histRows ?? []) as { accion: string; detalle: string | null }[];
+  const desEntry = histList.find((h) => h.accion === 'desasignacion');
+  if (desEntry?.detalle) {
+    try {
+      const parsed = JSON.parse(desEntry.detalle) as { oficinaId: number; oficinaNombre: string };
+      const row = res as DeviceRow;
+      await insertTrasladoRegistro(
+        Number(id),
+        row.codigoInventario ?? null,
+        { id: parsed.oficinaId, nombre: parsed.oficinaNombre },
+        { id: Number(destinationOfficeId), nombre: office?.name ?? destinationOfficeId },
+        'reasignacion',
+      );
+    } catch { /* JSON parse falló, omitir */ }
+  }
+
   return mapDevice(res as DeviceRow, new Map(baseData.offices.map((o) => [o.id, o] as const)));
 };
 
 export const swapDevices = async (idA: string, idB: string): Promise<void> => {
   const { data, error } = await supabase!.from('dispositivo')
-    .select('id, destinoId').in('id', [Number(idA), Number(idB)]);
+    .select('id, destinoId, codigoInventario').in('id', [Number(idA), Number(idB)]);
   if (error) throw error;
   if (!data || data.length !== 2) throw new Error('No se encontraron ambos dispositivos');
 
-  const [a, b] = data as { id: number; destinoId: number | null }[];
+  const [a, b] = data as { id: number; destinoId: number | null; codigoInventario: string | null }[];
   await Promise.all([
     supabase!.from('dispositivo').update({ destinoId: b.destinoId, asignacion: b.destinoId ? 'asignado' : 'pendiente' }).eq('id', a.id),
     supabase!.from('dispositivo').update({ destinoId: a.destinoId, asignacion: a.destinoId ? 'asignado' : 'pendiente' }).eq('id', b.id),
@@ -671,6 +785,16 @@ export const swapDevices = async (idA: string, idB: string): Promise<void> => {
   await Promise.all([
     insertHistorial(a.id, 'intercambio', `Intercambiado con dispositivo ${b.id} → ${officeB?.name ?? '—'}`),
     insertHistorial(b.id, 'intercambio', `Intercambiado con dispositivo ${a.id} → ${officeA?.name ?? '—'}`),
+    ...(a.destinoId && b.destinoId ? [
+      insertTrasladoRegistro(a.id, a.codigoInventario ?? null,
+        { id: a.destinoId, nombre: officeA?.name ?? String(a.destinoId) },
+        { id: b.destinoId, nombre: officeB?.name ?? String(b.destinoId) },
+        'intercambio'),
+      insertTrasladoRegistro(b.id, b.codigoInventario ?? null,
+        { id: b.destinoId, nombre: officeB?.name ?? String(b.destinoId) },
+        { id: a.destinoId, nombre: officeA?.name ?? String(a.destinoId) },
+        'intercambio'),
+    ] : []),
   ]);
 };
 
