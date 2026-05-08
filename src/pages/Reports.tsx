@@ -6,7 +6,7 @@ import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, Image as PDFIm
 import * as XLSX from 'xlsx';
 import { useReports } from '../hooks/useReports';
 import { reportService } from '../services/reportService';
-import { ReportBatchFilter, ReportBatchItem, DeviceType, Device, Baja } from '../lib/types';
+import { ReportBatchFilter, ReportBatchItem, ReportGroupBy, DeviceType, Device, Baja, TrasladoRegistro } from '../lib/types';
 
 type DownloadLinkProps = {
   document: React.ReactElement;
@@ -15,7 +15,7 @@ type DownloadLinkProps = {
 };
 const DownloadLink = PDFDownloadLink as React.ComponentType<DownloadLinkProps>;
 
-// ─── PDF styles ──────────────────────────────────────────────────────────────
+// ─── PDF styles ───────────────────────────────────────────────────────────────
 
 const S = StyleSheet.create({
   page:          { padding: 28, fontSize: 9, fontFamily: 'Helvetica' },
@@ -24,9 +24,10 @@ const S = StyleSheet.create({
   subtitle:      { fontSize: 10, marginBottom: 2 },
   date:          { color: '#666', fontSize: 8 },
 
-  sectionTitle:  { fontSize: 10, fontWeight: 'bold', backgroundColor: '#E8EDF2', padding: '4 6', marginTop: 10, marginBottom: 4 },
-  areaTitle:     { fontSize: 12, fontWeight: 'bold', backgroundColor: '#D0D8E4', padding: '5 8', marginTop: 14, marginBottom: 4 },
-  officeTitle:   { fontSize: 10, fontWeight: 'bold', backgroundColor: '#EEF2F7', padding: '4 8', marginTop: 8, marginBottom: 4, borderLeft: '3pt solid #8BA4C0' },
+  sectionTitle:    { fontSize: 10, fontWeight: 'bold', backgroundColor: '#E8EDF2', padding: '4 6', marginTop: 10, marginBottom: 4 },
+  subsectionTitle: { fontSize: 9, fontWeight: 'bold', color: '#555', padding: '2 6', marginTop: 6, marginBottom: 3 },
+  areaTitle:       { fontSize: 12, fontWeight: 'bold', backgroundColor: '#D0D8E4', padding: '5 8', marginTop: 14, marginBottom: 4 },
+  sublabel:        { fontSize: 8, color: '#666', marginTop: -3, marginBottom: 6, padding: '0 8' },
   summaryBox:    { flexDirection: 'row', gap: 8, marginBottom: 8 },
   summaryItem:   { flex: 1, border: '1pt solid #ccc', padding: '4 6', borderRadius: 3 },
   summaryLabel:  { fontSize: 7, color: '#666', marginBottom: 1 },
@@ -44,11 +45,13 @@ const S = StyleSheet.create({
   colDesc:       { width: '22%' },
   colChar:       { width: '22%' },
   colBrand:      { width: '18%' },
-  colBrandWide:  { width: '32%' },
   colImg:        { width: '14%', borderRight: 0, alignItems: 'center', justifyContent: 'center' },
-  colOrigin:     { width: '22%' },
 
-  // Bajas – 6 columns
+  colTrasCode:   { width: '15%' },
+  colTrasOffice: { width: '35%' },
+  colTrasAccion: { width: '20%' },
+  colTrasDate:   { width: '30%', borderRight: 0 },
+
   colBajaSub:    { width: '15%' },
   colBajaCode:   { width: '12%' },
   colBajaDesc:   { width: '28%' },
@@ -64,7 +67,7 @@ const S = StyleSheet.create({
   obsLines:      { marginTop: 6, height: 50, border: '0.5pt solid #ccc' },
 });
 
-// ─── PDF helpers ─────────────────────────────────────────────────────────────
+// ─── PDF helpers ──────────────────────────────────────────────────────────────
 
 function TableHeader({ cols }: { cols: { label: string; style?: ViewProps['style'] }[] }) {
   return (
@@ -72,7 +75,7 @@ function TableHeader({ cols }: { cols: { label: string; style?: ViewProps['style
       {cols.map((c, i) => (
         <View
           key={i}
-          style={c.style ? ({ ...(S.cell as any), ...(c.style as any) } as ViewProps['style']) : (S.cell as ViewProps['style'])}
+          style={c.style ? ({ ...(S.cell as object), ...(c.style as object) } as ViewProps['style']) : (S.cell as ViewProps['style'])}
         >
           <Text style={S.headerText}>{c.label}</Text>
         </View>
@@ -91,158 +94,225 @@ function DeviceImageCell({ url, baseUrl }: { url?: string; baseUrl: string }) {
   );
 }
 
-// ─── Per-area data builders ───────────────────────────────────────────────────
+// ─── Section builder ──────────────────────────────────────────────────────────
 
-type OfficeSection = {
-  officeId: string;
-  officeName: string;
+type ReportSection = {
+  label: string;
+  sublabel?: string;
   newDevices: { device: Device; type: DeviceType }[];
   transferDevices: { device: Device; type: DeviceType }[];
-};
-
-type AreaSection = {
-  areaId: string;
-  areaName: string;
-  offices: OfficeSection[];
+  salidas: TrasladoRegistro[];
+  entradas: TrasladoRegistro[];
   bajas: Baja[];
 };
 
-function buildAreaSections(report: ReportBatchItem): AreaSection[] {
+function buildReportSections(report: ReportBatchItem, groupBy: ReportGroupBy): ReportSection[] {
   const getType = (d: Device) => report.deviceTypes.find((t) => t.id === d.typeId);
+  const traslados = report.trasladoRegistro ?? [];
 
-  return report.areas.map((area) => {
-    const areaOffices = report.offices.filter((o) => o.areaId === area.id);
+  const makeSection = (
+    label: string,
+    sublabel: string | undefined,
+    officeIds: string[],
+    areaIds: string[],
+  ): ReportSection | null => {
+    const officeSet = new Set(officeIds);
+    const areaSet = new Set(areaIds);
+    const officeDevices = report.devices.filter(
+      (d) => d.asignacion === 'asignado' && d.destinationOfficeId && officeSet.has(d.destinationOfficeId),
+    );
+    const newDevices = officeDevices
+      .filter((d) => d.status === 'New')
+      .map((d) => ({ device: d, type: getType(d) }))
+      .filter((x): x is { device: Device; type: DeviceType } => Boolean(x.type));
+    const transferDevices = officeDevices
+      .filter((d) => d.status === 'Transfer')
+      .map((d) => ({ device: d, type: getType(d) }))
+      .filter((x): x is { device: Device; type: DeviceType } => Boolean(x.type));
+    const salidas = traslados.filter((t) => t.origenOficinaId != null && officeSet.has(t.origenOficinaId));
+    const entradas = traslados.filter((t) => t.destinoOficinaId != null && officeSet.has(t.destinoOficinaId));
+    const bajas = report.bajas.filter((b) => areaSet.has(b.areaId));
+    if (!newDevices.length && !transferDevices.length && !salidas.length && !entradas.length && !bajas.length) return null;
+    return { label, sublabel, newDevices, transferDevices, salidas, entradas, bajas };
+  };
 
-    const offices: OfficeSection[] = areaOffices.map((office) => {
-      const officeDevices = report.devices.filter(
-        (d) => d.asignacion === 'asignado' && d.destinationOfficeId === office.id,
-      );
-      return {
-        officeId: office.id,
-        officeName: office.name,
-        newDevices: officeDevices
-          .filter((d) => d.status === 'New')
-          .map((d) => ({ device: d, type: getType(d) }))
-          .filter((x): x is { device: Device; type: DeviceType } => Boolean(x.type)),
-        transferDevices: officeDevices
-          .filter((d) => d.status === 'Transfer')
-          .map((d) => ({ device: d, type: getType(d) }))
-          .filter((x): x is { device: Device; type: DeviceType } => Boolean(x.type)),
-      };
-    }).filter((s) => s.newDevices.length > 0 || s.transferDevices.length > 0);
+  switch (groupBy) {
+    case 'dependencia': {
+      const depMap = new Map<string, { name: string; areaIds: string[] }>();
+      for (const dep of report.dependencias) depMap.set(dep.id, { name: dep.name, areaIds: [] });
+      for (const area of report.areas) {
+        if (area.dependenciaId && depMap.has(area.dependenciaId)) {
+          depMap.get(area.dependenciaId)!.areaIds.push(area.id);
+        }
+      }
+      const result: ReportSection[] = [];
+      for (const dep of depMap.values()) {
+        const officeIds = report.offices.filter((o) => dep.areaIds.includes(o.areaId)).map((o) => o.id);
+        const s = makeSection(dep.name, undefined, officeIds, dep.areaIds);
+        if (s) result.push(s);
+      }
+      return result;
+    }
 
-    return {
-      areaId: area.id,
-      areaName: area.name,
-      offices,
-      bajas: report.bajas.filter((b) => b.areaId === area.id),
-    };
-  }).filter((s) => s.offices.length > 0 || s.bajas.length > 0);
+    case 'subgerencia': {
+      return report.areas
+        .map((area) => {
+          const officeIds = report.offices.filter((o) => o.areaId === area.id).map((o) => o.id);
+          return makeSection(area.name, undefined, officeIds, [area.id]);
+        })
+        .filter(Boolean) as ReportSection[];
+    }
+
+    case 'piso': {
+      const floors = [...new Set(report.offices.map((o) => o.floor))].sort((a, b) => a - b);
+      return floors
+        .map((floor) => {
+          const floorOffices = report.offices.filter((o) => o.floor === floor);
+          const officeIds = floorOffices.map((o) => o.id);
+          const areaIds = [...new Set(floorOffices.map((o) => o.areaId))];
+          return makeSection(`Piso ${floor}`, floorOffices.map((o) => o.name).join(', '), officeIds, areaIds);
+        })
+        .filter(Boolean) as ReportSection[];
+    }
+
+    case 'area': {
+      return report.offices
+        .map((office) => {
+          const area = report.areas.find((a) => a.id === office.areaId);
+          const sublabel = area ? `${area.name} — Piso ${office.floor}` : `Piso ${office.floor}`;
+          return makeSection(office.name, sublabel, [office.id], office.areaId ? [office.areaId] : []);
+        })
+        .filter(Boolean) as ReportSection[];
+    }
+
+    default:
+      return [];
+  }
 }
 
 // ─── PDF Document ─────────────────────────────────────────────────────────────
 
-function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: string }) {
+function ReportPDF({ reports, baseUrl, groupBy }: { reports: ReportBatchItem[]; baseUrl: string; groupBy: ReportGroupBy }) {
   return (
     <Document>
       {reports.map((report, ri) => {
-        const sections = buildAreaSections(report);
+        const sections = buildReportSections(report, groupBy);
         return (
           <Page key={ri} size="A4" style={S.page} orientation="landscape">
-            {/* Header */}
             <View style={S.header}>
               <Text style={S.title}>Reporte de Traslado de Dispositivos</Text>
               <Text style={S.subtitle}>{report.title}</Text>
               <Text style={S.date}>Generado el {new Date().toLocaleDateString('es-ES')}</Text>
             </View>
 
-            {/* Global summary */}
             <View style={S.summaryBox}>
-              <View style={S.summaryItem}>
-                <Text style={S.summaryLabel}>Dispositivos nuevos</Text>
-                <Text style={S.summaryValue}>{report.totals.newDevices}</Text>
-              </View>
-              <View style={S.summaryItem}>
-                <Text style={S.summaryLabel}>Traslados</Text>
-                <Text style={S.summaryValue}>{report.totals.transferDevices}</Text>
-              </View>
-              <View style={S.summaryItem}>
-                <Text style={S.summaryLabel}>Bajas</Text>
-                <Text style={S.summaryValue}>{report.bajas.length}</Text>
-              </View>
-              <View style={S.summaryItem}>
-                <Text style={S.summaryLabel}>Total dispositivos</Text>
-                <Text style={S.summaryValue}>{report.totals.devices}</Text>
-              </View>
+              <View style={S.summaryItem}><Text style={S.summaryLabel}>Dispositivos nuevos</Text><Text style={S.summaryValue}>{report.totals.newDevices}</Text></View>
+              <View style={S.summaryItem}><Text style={S.summaryLabel}>Traslados</Text><Text style={S.summaryValue}>{report.totals.transferDevices}</Text></View>
+              <View style={S.summaryItem}><Text style={S.summaryLabel}>Bajas</Text><Text style={S.summaryValue}>{report.bajas.length}</Text></View>
+              <View style={S.summaryItem}><Text style={S.summaryLabel}>Total dispositivos</Text><Text style={S.summaryValue}>{report.totals.devices}</Text></View>
             </View>
 
-            {/* Sections per subgerencia → oficina */}
-            {sections.map((section) => (
-              <View key={section.areaId}>
-                <Text style={S.areaTitle}>{section.areaName}</Text>
+            {sections.map((section, si) => (
+              <View key={si}>
+                <Text style={S.areaTitle}>{section.label}</Text>
+                {section.sublabel && <Text style={S.sublabel}>{section.sublabel}</Text>}
 
-                {/* Per-office device tables */}
-                {section.offices.map((office) => (
-                  <View key={office.officeId}>
-                    <Text style={S.officeTitle}>{office.officeName}</Text>
+                {/* Nuevos */}
+                <Text style={S.sectionTitle}>DISPOSITIVOS NUEVOS ({section.newDevices.length})</Text>
+                {section.newDevices.length === 0 ? <Text style={S.noData}>Sin registros</Text> : (
+                  <View style={S.table}>
+                    <TableHeader cols={[
+                      { label: 'INVENTARIO',      style: S.colCode },
+                      { label: 'PLAN',            style: S.colPlan },
+                      { label: 'DESCRIPCIÓN',     style: S.colDesc },
+                      { label: 'CARACTERÍSTICAS', style: S.colChar },
+                      { label: 'MARCA / MODELO',  style: S.colBrand },
+                      { label: 'IMAGEN',          style: S.colImg },
+                    ]} />
+                    {section.newDevices.map(({ device, type }, i) => (
+                      <View key={i} style={S.row} wrap={false}>
+                        <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
+                        <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
+                        <View style={[S.cell, S.colDesc]}><Text style={S.cellText}>{type.description}</Text></View>
+                        <View style={[S.cell, S.colChar]}><Text style={S.cellText}>{type.characteristics || '-'}</Text></View>
+                        <View style={[S.cell, S.colBrand]}><Text style={S.cellText}>{type.brandModel || '-'}</Text></View>
+                        <DeviceImageCell url={type.imageUrl} baseUrl={baseUrl} />
+                      </View>
+                    ))}
+                  </View>
+                )}
 
-                    {/* Table 1: Nuevos */}
-                    <Text style={S.sectionTitle}>DISPOSITIVOS NUEVOS ({office.newDevices.length})</Text>
-                    {office.newDevices.length === 0 ? (
-                      <Text style={S.noData}>Sin registros</Text>
-                    ) : (
+                {/* Traslados */}
+                <Text style={S.sectionTitle}>DISPOSITIVOS DE TRASLADO ({section.transferDevices.length})</Text>
+                {section.transferDevices.length === 0 ? <Text style={S.noData}>Sin registros</Text> : (
+                  <View style={S.table}>
+                    <TableHeader cols={[
+                      { label: 'INVENTARIO',  style: S.colCode },
+                      { label: 'PLAN',        style: S.colPlan },
+                      { label: 'DESCRIPCIÓN', style: { width: '38%' } },
+                      { label: 'ORIGEN',      style: { width: '38%' } },
+                    ]} />
+                    {section.transferDevices.map(({ device, type }, i) => (
+                      <View key={i} style={S.row} wrap={false}>
+                        <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
+                        <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
+                        <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{type.description}</Text></View>
+                        <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{device.originOfficeDescription || '-'}</Text></View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Historial de traslados */}
+                {(section.salidas.length > 0 || section.entradas.length > 0) && (
+                  <View>
+                    <Text style={S.sectionTitle}>HISTORIAL DE TRASLADOS</Text>
+
+                    <Text style={S.subsectionTitle}>Salidas ({section.salidas.length})</Text>
+                    {section.salidas.length === 0 ? <Text style={S.noData}>Sin registros</Text> : (
                       <View style={S.table}>
                         <TableHeader cols={[
-                          { label: 'INVENTARIO',      style: S.colCode },
-                          { label: 'PLAN',            style: S.colPlan },
-                          { label: 'DESCRIPCIÓN',     style: S.colDesc },
-                          { label: 'CARACTERÍSTICAS', style: S.colChar },
-                          { label: 'MARCA / MODELO',  style: S.colBrand },
-                          { label: 'IMAGEN',          style: S.colImg },
+                          { label: 'CÓDIGO',  style: S.colTrasCode },
+                          { label: 'DESTINO', style: S.colTrasOffice },
+                          { label: 'ACCIÓN',  style: S.colTrasAccion },
+                          { label: 'FECHA',   style: S.colTrasDate },
                         ]} />
-                        {office.newDevices.map(({ device, type }, i) => (
+                        {section.salidas.map((t, i) => (
                           <View key={i} style={S.row} wrap={false}>
-                            <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
-                            <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
-                            <View style={[S.cell, S.colDesc]}><Text style={S.cellText}>{type.description}</Text></View>
-                            <View style={[S.cell, S.colChar]}><Text style={S.cellText}>{type.characteristics || '-'}</Text></View>
-                            <View style={[S.cell, S.colBrand]}><Text style={S.cellText}>{type.brandModel || '-'}</Text></View>
-                            <DeviceImageCell url={type.imageUrl} baseUrl={baseUrl} />
+                            <View style={[S.cell, S.colTrasCode]}><Text style={S.cellText}>{t.codigoInventario || 'S/C'}</Text></View>
+                            <View style={[S.cell, S.colTrasOffice]}><Text style={S.cellText}>{t.destinoOficinaNombre || '-'}</Text></View>
+                            <View style={[S.cell, S.colTrasAccion]}><Text style={S.cellText}>{t.accion}</Text></View>
+                            <View style={[S.cell, S.colTrasDate]}><Text style={S.cellText}>{new Date(t.createdAt).toLocaleString('es-ES')}</Text></View>
                           </View>
                         ))}
                       </View>
                     )}
 
-                    {/* Table 2: Traslados */}
-                    <Text style={S.sectionTitle}>DISPOSITIVOS DE TRASLADO ({office.transferDevices.length})</Text>
-                    {office.transferDevices.length === 0 ? (
-                      <Text style={S.noData}>Sin registros</Text>
-                    ) : (
+                    <Text style={S.subsectionTitle}>Entradas ({section.entradas.length})</Text>
+                    {section.entradas.length === 0 ? <Text style={S.noData}>Sin registros</Text> : (
                       <View style={S.table}>
                         <TableHeader cols={[
-                          { label: 'INVENTARIO',  style: S.colCode },
-                          { label: 'PLAN',        style: S.colPlan },
-                          { label: 'DESCRIPCIÓN', style: { width: '38%' } },
-                          { label: 'ORIGEN',      style: { width: '38%' } },
+                          { label: 'CÓDIGO', style: S.colTrasCode },
+                          { label: 'ORIGEN', style: S.colTrasOffice },
+                          { label: 'ACCIÓN', style: S.colTrasAccion },
+                          { label: 'FECHA',  style: S.colTrasDate },
                         ]} />
-                        {office.transferDevices.map(({ device, type }, i) => (
+                        {section.entradas.map((t, i) => (
                           <View key={i} style={S.row} wrap={false}>
-                            <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
-                            <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
-                            <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{type.description}</Text></View>
-                            <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{device.originOfficeDescription || '-'}</Text></View>
+                            <View style={[S.cell, S.colTrasCode]}><Text style={S.cellText}>{t.codigoInventario || 'S/C'}</Text></View>
+                            <View style={[S.cell, S.colTrasOffice]}><Text style={S.cellText}>{t.origenOficinaNombre || '-'}</Text></View>
+                            <View style={[S.cell, S.colTrasAccion]}><Text style={S.cellText}>{t.accion}</Text></View>
+                            <View style={[S.cell, S.colTrasDate]}><Text style={S.cellText}>{new Date(t.createdAt).toLocaleString('es-ES')}</Text></View>
                           </View>
                         ))}
                       </View>
                     )}
                   </View>
-                ))}
+                )}
 
-                {/* Table 3: Bajas al nivel de subgerencia */}
+                {/* Bajas */}
                 <Text style={S.sectionTitle}>BAJAS ({section.bajas.length})</Text>
-                {section.bajas.length === 0 ? (
-                  <Text style={S.noData}>Sin registros</Text>
-                ) : (
+                {section.bajas.length === 0 ? <Text style={S.noData}>Sin registros</Text> : (
                   <View style={S.table}>
                     <TableHeader cols={[
                       { label: 'SUBGERENCIA', style: S.colBajaSub  },
@@ -254,7 +324,7 @@ function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: 
                     ]} />
                     {section.bajas.map((baja, i) => (
                       <View key={i} style={S.row} wrap={false}>
-                        <View style={[S.cell, S.colBajaSub]}><Text style={S.cellText}>{baja.areaName || section.areaName}</Text></View>
+                        <View style={[S.cell, S.colBajaSub]}><Text style={S.cellText}>{baja.areaName || section.label}</Text></View>
                         <View style={[S.cell, S.colBajaCode]}><Text style={S.cellText}>{baja.inventoryCode || 'S/C'}</Text></View>
                         <View style={[S.cell, S.colBajaDesc]}><Text style={S.cellText}>{baja.description}</Text></View>
                         <View style={[S.cell, S.colBajaOfi]}><Text style={S.cellText}>{baja.officeName || '-'}</Text></View>
@@ -267,7 +337,6 @@ function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: 
               </View>
             ))}
 
-            {/* Observations + signatures */}
             <View style={S.obsBox} wrap={false}>
               <Text>Observaciones:</Text>
               <View style={S.obsLines} />
@@ -285,15 +354,22 @@ function ReportPDF({ reports, baseUrl }: { reports: ReportBatchItem[]; baseUrl: 
 
 // ─── Page component ───────────────────────────────────────────────────────────
 
+const GROUP_BY_LABELS: Record<ReportGroupBy, string> = {
+  dependencia: 'Por Dependencia',
+  subgerencia: 'Por Subgerencia',
+  piso:        'Por Piso',
+  area:        'Por Área',
+};
+
 export function Reports() {
   const { dependencias, areas, offices } = useReports();
 
-  // Cascading filter state
   const [filterDepId, setFilterDepId]       = useState('');
   const [filterAreaId, setFilterAreaId]     = useState('');
   const [filterOfficeId, setFilterOfficeId] = useState('');
   const [filterFloor, setFilterFloor]       = useState('');
   const [statusFilter, setStatusFilter]     = useState<'Todos' | 'New' | 'Transfer'>('Todos');
+  const [groupBy, setGroupBy]               = useState<ReportGroupBy>('subgerencia');
 
   const [reportConfigs, setReportConfigs] = useState<ReportBatchFilter[]>([]);
   const [batchReports, setBatchReports]   = useState<ReportBatchItem[]>([]);
@@ -302,23 +378,16 @@ export function Reports() {
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
-  // Cascading: subgerencias filtered by dependencia
-  const filteredAreas = filterDepId
-    ? areas.filter((a) => a.dependenciaId === filterDepId)
-    : areas;
+  const filteredAreas = filterDepId ? areas.filter((a) => a.dependenciaId === filterDepId) : areas;
 
-  // Offices cascading from selected subgerencia / dependencia
   const filteredOfficesForSelect = offices.filter((o) => {
     if (filterAreaId && o.areaId !== filterAreaId) return false;
     if (filterDepId && !filteredAreas.some((a) => a.id === o.areaId)) return false;
     return true;
   });
 
-  // Floors available given selected office / area / dependencia
-  const floorsSource = filterOfficeId
-    ? offices.filter((o) => o.id === filterOfficeId)
-    : filteredOfficesForSelect;
-  const allFloors = Array.from(new Set(floorsSource.map((o) => o.floor))).sort((a, b) => a - b);
+  const floorsSource = filterOfficeId ? offices.filter((o) => o.id === filterOfficeId) : filteredOfficesForSelect;
+  const allFloors = [...new Set(floorsSource.map((o) => o.floor))].sort((a, b) => a - b);
 
   const currentFilter: ReportBatchFilter = {
     dependenciaId: filterDepId    || undefined,
@@ -326,6 +395,7 @@ export function Reports() {
     officeId:      filterOfficeId || undefined,
     floor:         filterFloor ? Number(filterFloor) : undefined,
     status:        statusFilter,
+    groupBy,
   };
 
   const describeFilter = (f: ReportBatchFilter) => {
@@ -372,43 +442,59 @@ export function Reports() {
     const wb = XLSX.utils.book_new();
     for (const report of batchReports) {
       const sheetName = (report.title || 'Reporte').slice(0, 31).replace(/[\\/:?*[\]]/g, '_');
-      const sections = buildAreaSections(report);
+      const sections = buildReportSections(report, groupBy);
       const rows: (string | number)[][] = [];
 
       for (const section of sections) {
-        rows.push([`SUBGERENCIA: ${section.areaName}`]);
+        rows.push([`${section.label}${section.sublabel ? ` — ${section.sublabel}` : ''}`]);
         rows.push([]);
-        for (const office of section.offices) {
-          rows.push([`  ÁREA: ${office.officeName}`]);
-          rows.push(['  NUEVOS']);
-          rows.push(['  Código', 'Plan', 'Descripción', 'Características', 'Marca/Modelo']);
-          for (const { device, type } of office.newDevices) {
-            rows.push([`  ${device.inventoryCode || ''}`, type.planCode, type.description, type.characteristics || '', type.brandModel || '']);
+
+        rows.push(['NUEVOS']);
+        rows.push(['Código', 'Plan', 'Descripción', 'Características', 'Marca/Modelo']);
+        for (const { device, type } of section.newDevices) {
+          rows.push([device.inventoryCode || '', type.planCode, type.description, type.characteristics || '', type.brandModel || '']);
+        }
+        if (!section.newDevices.length) rows.push(['Sin registros']);
+        rows.push([]);
+
+        rows.push(['TRASLADOS']);
+        rows.push(['Código', 'Plan', 'Descripción', 'Origen']);
+        for (const { device, type } of section.transferDevices) {
+          rows.push([device.inventoryCode || '', type.planCode, type.description, device.originOfficeDescription || '']);
+        }
+        if (!section.transferDevices.length) rows.push(['Sin registros']);
+        rows.push([]);
+
+        if (section.salidas.length > 0 || section.entradas.length > 0) {
+          rows.push(['HISTORIAL DE TRASLADOS']);
+          rows.push(['SALIDAS']);
+          rows.push(['Código', 'Destino', 'Acción', 'Fecha']);
+          for (const t of section.salidas) {
+            rows.push([t.codigoInventario || 'S/C', t.destinoOficinaNombre || '-', t.accion, new Date(t.createdAt).toLocaleString('es-ES')]);
           }
-          if (office.newDevices.length === 0) rows.push(['  Sin registros']);
+          if (!section.salidas.length) rows.push(['Sin registros']);
           rows.push([]);
-          rows.push(['  TRASLADOS']);
-          rows.push(['  Código', 'Plan', 'Descripción', 'Origen']);
-          for (const { device, type } of office.transferDevices) {
-            rows.push([`  ${device.inventoryCode || ''}`, type.planCode, type.description, device.originOfficeDescription || '']);
+          rows.push(['ENTRADAS']);
+          rows.push(['Código', 'Origen', 'Acción', 'Fecha']);
+          for (const t of section.entradas) {
+            rows.push([t.codigoInventario || 'S/C', t.origenOficinaNombre || '-', t.accion, new Date(t.createdAt).toLocaleString('es-ES')]);
           }
-          if (office.transferDevices.length === 0) rows.push(['  Sin registros']);
+          if (!section.entradas.length) rows.push(['Sin registros']);
           rows.push([]);
         }
-        rows.push([`  BAJAS (${section.areaName})`]);
-        rows.push(['  Código', 'Descripción', 'Oficina', 'Origen', 'Motivo']);
+
+        rows.push(['BAJAS']);
+        rows.push(['Subgerencia', 'Inventario', 'Descripción', 'Oficina', 'Origen', 'Motivo']);
         for (const b of section.bajas) {
-          rows.push([`  ${b.inventoryCode || ''}`, b.description, b.officeName, b.origin, b.reason]);
+          rows.push([b.areaName || section.label, b.inventoryCode || 'S/C', b.description, b.officeName || '-', b.origin || '-', b.reason || '-']);
         }
-        if (section.bajas.length === 0) rows.push(['  Sin registros']);
+        if (!section.bajas.length) rows.push(['Sin registros']);
         rows.push([]); rows.push([]);
       }
 
-      const ws = XLSX.utils.aoa_to_sheet(rows);
-      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), sheetName);
     }
-    const xlsxName = fileName.replace('.pdf', '.xlsx');
-    XLSX.writeFile(wb, xlsxName);
+    XLSX.writeFile(wb, fileName.replace('.pdf', '.xlsx'));
   };
 
   return (
@@ -418,12 +504,26 @@ export function Reports() {
       {/* ── Filters ── */}
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 space-y-4">
         <h2 className="text-lg font-medium text-gray-900">Configuración del Reporte</h2>
+
+        {/* GroupBy toggle */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de agrupación</label>
+          <div className="flex bg-gray-100 p-1 rounded-md w-fit">
+            {(Object.keys(GROUP_BY_LABELS) as ReportGroupBy[]).map((g) => (
+              <button key={g} onClick={() => setGroupBy(g)}
+                className={`px-4 text-sm py-1.5 rounded-sm transition-colors ${groupBy === g ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
+                {GROUP_BY_LABELS[g]}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex flex-wrap gap-4 items-end">
           {/* Dependencia */}
           <div className="w-44">
             <label className="block text-sm font-medium text-gray-700 mb-1">Dependencia</label>
             <select className="input-field" value={filterDepId}
-              onChange={(e) => { setFilterDepId(e.target.value); setFilterAreaId(''); setFilterFloor(''); }}>
+              onChange={(e) => { setFilterDepId(e.target.value); setFilterAreaId(''); setFilterOfficeId(''); setFilterFloor(''); }}>
               <option value="">Todas</option>
               {dependencias.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
@@ -439,7 +539,7 @@ export function Reports() {
             </select>
           </div>
 
-          {/* Área (oficina específica) */}
+          {/* Área */}
           <div className="flex-1 min-w-[180px]">
             <label className="block text-sm font-medium text-gray-700 mb-1">Área</label>
             <select className="input-field" value={filterOfficeId}
@@ -507,7 +607,7 @@ export function Reports() {
             </div>
             {batchReports.length > 0 && (
               <div className="flex items-center gap-2">
-                <DownloadLink document={<ReportPDF reports={batchReports} baseUrl={baseUrl} />} fileName={fileName}>
+                <DownloadLink document={<ReportPDF reports={batchReports} baseUrl={baseUrl} groupBy={groupBy} />} fileName={fileName}>
                   <button className="btn-primary flex items-center gap-2">
                     <Download className="w-4 h-4" /> Exportar PDF
                   </button>
@@ -521,7 +621,7 @@ export function Reports() {
 
           <div className="p-6 bg-gray-50 space-y-4">
             {batchReports.map((report, i) => {
-              const sections = buildAreaSections(report);
+              const sections = buildReportSections(report, groupBy);
               return (
                 <div key={i} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                   <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
@@ -530,57 +630,55 @@ export function Reports() {
                       {report.totals.newDevices} nuevos · {report.totals.transferDevices} traslados · {report.bajas.length} bajas
                     </p>
                   </div>
-                  {sections.map((section) => (
-                    <div key={section.areaId} className="border-b border-gray-100 last:border-0">
-                      {/* Cabecera subgerencia */}
+                  {sections.map((section, si) => (
+                    <div key={si} className="border-b border-gray-100 last:border-0">
                       <div className="px-6 py-3 bg-blue-50 border-b border-blue-100">
-                        <h4 className="font-semibold text-blue-900 text-sm">{section.areaName}</h4>
+                        <h4 className="font-semibold text-blue-900 text-sm">{section.label}</h4>
+                        {section.sublabel && <p className="text-xs text-blue-600 mt-0.5">{section.sublabel}</p>}
                       </div>
-
-                      {/* Bloques por oficina/área */}
-                      {section.offices.map((office) => (
-                        <div key={office.officeId} className="px-6 py-4 border-b border-gray-100 last:border-0 space-y-3 ml-2">
-                          <div className="flex items-center gap-2">
-                            <div className="w-1 h-4 bg-blue-400 rounded" />
-                            <h5 className="font-medium text-gray-700 text-sm">{office.officeName}</h5>
-                          </div>
-                          <PreviewTable
-                            title={`Nuevos (${office.newDevices.length})`}
-                            cols={['Inventario', 'Plan', 'Descripción', 'Características', 'Marca/Modelo', 'Imagen']}
-                            rows={office.newDevices.map(({ device, type }) => [
-                              device.inventoryCode || 'S/C',
-                              type.planCode,
-                              type.description,
-                              type.characteristics || '-',
-                              type.brandModel || '-',
-                              type.imageUrl ? '🖼' : '-',
-                            ])}
-                          />
-                          <PreviewTable
-                            title={`Traslados (${office.transferDevices.length})`}
-                            cols={['Inventario', 'Plan', 'Descripción', 'Origen']}
-                            rows={office.transferDevices.map(({ device, type }) => [
-                              device.inventoryCode || 'S/C',
-                              type.planCode,
-                              type.description,
-                              device.originOfficeDescription || '-',
-                            ])}
-                          />
-                        </div>
-                      ))}
-
-                      {/* Bajas al nivel de subgerencia */}
-                      <div className="px-6 py-4 space-y-3">
+                      <div className="px-6 py-4 space-y-4">
+                        <PreviewTable
+                          title={`Nuevos (${section.newDevices.length})`}
+                          cols={['Inventario', 'Plan', 'Descripción', 'Características', 'Marca/Modelo', 'Imagen']}
+                          rows={section.newDevices.map(({ device, type }) => [
+                            device.inventoryCode || 'S/C', type.planCode, type.description,
+                            type.characteristics || '-', type.brandModel || '-', type.imageUrl ? '🖼' : '-',
+                          ])}
+                        />
+                        <PreviewTable
+                          title={`Traslados (${section.transferDevices.length})`}
+                          cols={['Inventario', 'Plan', 'Descripción', 'Origen']}
+                          rows={section.transferDevices.map(({ device, type }) => [
+                            device.inventoryCode || 'S/C', type.planCode, type.description,
+                            device.originOfficeDescription || '-',
+                          ])}
+                        />
+                        {(section.salidas.length > 0 || section.entradas.length > 0) && (
+                          <>
+                            <PreviewTable
+                              title={`Salidas (${section.salidas.length})`}
+                              cols={['Código', 'Destino', 'Acción', 'Fecha']}
+                              rows={section.salidas.map((t) => [
+                                t.codigoInventario || 'S/C', t.destinoOficinaNombre || '-',
+                                t.accion, new Date(t.createdAt).toLocaleString('es-ES'),
+                              ])}
+                            />
+                            <PreviewTable
+                              title={`Entradas (${section.entradas.length})`}
+                              cols={['Código', 'Origen', 'Acción', 'Fecha']}
+                              rows={section.entradas.map((t) => [
+                                t.codigoInventario || 'S/C', t.origenOficinaNombre || '-',
+                                t.accion, new Date(t.createdAt).toLocaleString('es-ES'),
+                              ])}
+                            />
+                          </>
+                        )}
                         <PreviewTable
                           title={`Bajas (${section.bajas.length})`}
                           cols={['Subgerencia', 'Inventario', 'Descripción', 'Oficina', 'Origen', 'Motivo']}
                           rows={section.bajas.map((b) => [
-                            b.areaName || section.areaName,
-                            b.inventoryCode || 'S/C',
-                            b.description,
-                            b.officeName || '-',
-                            b.origin || '-',
-                            b.reason || '-',
+                            b.areaName || section.label, b.inventoryCode || 'S/C', b.description,
+                            b.officeName || '-', b.origin || '-', b.reason || '-',
                           ])}
                         />
                       </div>
@@ -604,7 +702,7 @@ export function Reports() {
 
 export default Reports;
 
-// ─── Preview table component ─────────────────────────────────────────────────
+// ─── Preview table ────────────────────────────────────────────────────────────
 
 function PreviewTable({ title, cols, rows }: { title: string; cols: string[]; rows: string[][] }) {
   return (
@@ -613,22 +711,17 @@ function PreviewTable({ title, cols, rows }: { title: string; cols: string[]; ro
       <div className="overflow-x-auto">
         <table className="w-full text-xs text-left border-collapse border border-gray-200">
           <thead className="bg-gray-50">
-            <tr>
-              {cols.map((c) => (
-                <th key={c} className="px-3 py-2 border border-gray-200 font-semibold text-gray-600">{c}</th>
-              ))}
-            </tr>
+            <tr>{cols.map((c) => <th key={c} className="px-3 py-2 border border-gray-200 font-semibold text-gray-600">{c}</th>)}</tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
-              <tr><td colSpan={cols.length} className="px-3 py-3 text-center text-gray-400 border border-gray-200">Sin registros</td></tr>
-            ) : rows.map((row, i) => (
-              <tr key={i} className="hover:bg-gray-50/50">
-                {row.map((cell, j) => (
-                  <td key={j} className="px-3 py-2 border border-gray-200 text-gray-700">{cell}</td>
-                ))}
-              </tr>
-            ))}
+            {rows.length === 0
+              ? <tr><td colSpan={cols.length} className="px-3 py-3 text-center text-gray-400 border border-gray-200">Sin registros</td></tr>
+              : rows.map((row, i) => (
+                  <tr key={i} className="hover:bg-gray-50/50">
+                    {row.map((cell, j) => <td key={j} className="px-3 py-2 border border-gray-200 text-gray-700">{cell}</td>)}
+                  </tr>
+                ))
+            }
           </tbody>
         </table>
       </div>

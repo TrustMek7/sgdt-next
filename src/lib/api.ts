@@ -124,7 +124,7 @@ const mapDevice = (row: DeviceRow, officesById: Map<string, Office>): Device => 
 const loadBaseData = async () => {
   const [
     areasResult, officesResult, deviceTypesResult, devicesResult,
-    bajasResult, dependenciasResult, clasificacionesResult,
+    bajasResult, dependenciasResult, clasificacionesResult, trasladosResult,
   ] = await Promise.all([
     supabase!.from('area').select('*').order('nombre', { ascending: true }),
     supabase!.from('oficina').select('*').order('nombre', { ascending: true }),
@@ -133,6 +133,7 @@ const loadBaseData = async () => {
     supabase!.from('baja').select('*').order('id', { ascending: true }),
     supabase!.from('dependencia').select('*').order('nombre', { ascending: true }),
     supabase!.from('clasificacion').select('*').order('nombre', { ascending: true }),
+    supabase!.from('registro_traslados').select('*').order('createdAt', { ascending: false }),
   ]);
 
   if (areasResult.error) throw areasResult.error;
@@ -143,6 +144,23 @@ const loadBaseData = async () => {
   // New tables may not exist yet (migration pending) — degrade gracefully
   const rawDependencias = dependenciasResult.error ? [] : (dependenciasResult.data ?? []) as DependenciaRow[];
   const rawClasificaciones = clasificacionesResult.error ? [] : (clasificacionesResult.data ?? []) as ClasificacionRow[];
+  const rawTrasladoRegistros = trasladosResult.error ? [] : (trasladosResult.data ?? []) as {
+    id: number; dispositivoId: number; codigoInventario: string | null;
+    origenOficinaId: number | null; origenOficinaNombre: string;
+    destinoOficinaId: number | null; destinoOficinaNombre: string | null;
+    accion: string; createdAt: string;
+  }[];
+  const trasladoRegistros: TrasladoRegistro[] = rawTrasladoRegistros.map((r) => ({
+    id: String(r.id),
+    dispositivoId: String(r.dispositivoId),
+    codigoInventario: r.codigoInventario ?? undefined,
+    origenOficinaId: r.origenOficinaId != null ? String(r.origenOficinaId) : undefined,
+    origenOficinaNombre: r.origenOficinaNombre,
+    destinoOficinaId: r.destinoOficinaId != null ? String(r.destinoOficinaId) : undefined,
+    destinoOficinaNombre: r.destinoOficinaNombre ?? undefined,
+    accion: r.accion as TrasladoRegistro['accion'],
+    createdAt: r.createdAt,
+  }));
 
   const rawAreas        = (areasResult.data ?? []) as AreaRow[];
   const rawOffices      = (officesResult.data ?? []) as OfficeRow[];
@@ -209,7 +227,7 @@ const loadBaseData = async () => {
     },
   };
 
-  return { rawAreas, offices: officesWithCounts, deviceTypes, devices, bajas, dependencias, clasificaciones, summary };
+  return { rawAreas, offices: officesWithCounts, deviceTypes, devices, bajas, dependencias, clasificaciones, trasladoRegistros, summary };
 };
 
 // ─── Report filter (builds a ReportBatchItem from filters) ───────────────────
@@ -257,6 +275,11 @@ const filterSummary = (
     filter.areaId ? baja.areaId === filter.areaId : filteredAreaIds.has(baja.areaId),
   );
 
+  const filteredTrasladoRegistro = data.trasladoRegistros.filter(
+    (t) => (t.origenOficinaId != null && filteredOfficeIds.has(t.origenOficinaId)) ||
+           (t.destinoOficinaId != null && filteredOfficeIds.has(t.destinoOficinaId)),
+  );
+
   // Resolved dependencias referenced by filtered areas
   const filteredDepIds = new Set(filteredAreas.map((a) => a.dependenciaId).filter(Boolean) as string[]);
   const filteredDependencias = data.dependencias.filter((d) => filteredDepIds.has(d.id));
@@ -273,6 +296,7 @@ const filterSummary = (
     deviceTypes: data.deviceTypes,
     devices: filteredDevices,
     bajas: filteredBajas,
+    trasladoRegistro: filteredTrasladoRegistro,
     clasificaciones: data.clasificaciones,
     totals: {
       areas: filteredAreas.length,

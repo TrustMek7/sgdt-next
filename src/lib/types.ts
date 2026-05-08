@@ -208,6 +208,7 @@ export interface ReportBatchItem extends ReportSummary {
   filter?: ReportBatchFilter;
   title: string;
   bajas: Baja[];
+  trasladoRegistro: TrasladoRegistro[];
 }
 
 export interface ReportBatchResponse {
