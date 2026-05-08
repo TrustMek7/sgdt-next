@@ -19,6 +19,9 @@ dist-ssr
 # Supabase (contiene información sensible)
 supabase/
 
+# Claude Code
+.claude/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
