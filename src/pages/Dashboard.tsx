@@ -113,7 +113,7 @@ export function Dashboard() {
         {chartData.length === 0 ? (
           <p className="text-center text-gray-400 py-12">Sin datos de clasificación disponibles</p>
         ) : (
-          <div className="h-80">
+          <div className="h-64 md:h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />

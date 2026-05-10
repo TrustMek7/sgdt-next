@@ -34,16 +34,15 @@ export function Modal({
       <div
         className={`relative bg-white rounded-lg shadow-xl w-full ${maxWidth} max-h-[90vh] overflow-hidden transform transition-all flex flex-col`}>
         
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">{title}</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-500 focus:outline-none">
-            
+            className="text-gray-400 hover:text-gray-500 focus:outline-none p-1">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="px-6 py-4 overflow-y-auto">{children}</div>
+        <div className="px-4 sm:px-6 py-3 sm:py-4 overflow-y-auto">{children}</div>
       </div>
     </div>);
 

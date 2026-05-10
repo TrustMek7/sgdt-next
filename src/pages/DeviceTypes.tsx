@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Image as ImageIcon, Upload, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Image as ImageIcon, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { SidePanel } from '../components/SidePanel';
-import { Modal } from '../components/Modal';
+import { ConfirmModal } from '../components/ConfirmModal';
+import { FormField } from '../components/FormField';
 import { Badge } from '../components/Badge';
 import { Pagination } from '../components/Pagination';
 import { DeviceType } from '../lib/types';
@@ -28,11 +29,7 @@ export function DeviceTypes() {
   const [currentType, setCurrentType] = useState<DeviceType | null>(null);
   const [typeToDelete, setTypeToDelete] = useState<DeviceType | null>(null);
   const [formData, setFormData] = useState({
-    planCode: '',
-    description: '',
-    characteristics: '',
-    brandModel: '',
-    clasificacionId: '',
+    planCode: '', description: '', characteristics: '', brandModel: '', clasificacionId: '',
   });
 
   const resetForm = () => {
@@ -59,15 +56,11 @@ export function DeviceTypes() {
       toast.error('El código y la descripción son requeridos');
       return;
     }
-
     const payload = {
-      planCode: formData.planCode,
-      description: formData.description,
-      characteristics: formData.characteristics,
-      brandModel: formData.brandModel,
+      planCode: formData.planCode, description: formData.description,
+      characteristics: formData.characteristics, brandModel: formData.brandModel,
       clasificacionId: formData.clasificacionId || undefined,
     };
-
     try {
       if (currentType) {
         await updateDeviceType(currentType.id, payload);
@@ -76,22 +69,18 @@ export function DeviceTypes() {
         await createDeviceType(payload);
         toast.success('Tipo de dispositivo creado');
       }
-      setIsPanelOpen(false);
-      resetForm();
+      setIsPanelOpen(false); resetForm();
     } catch (err) {
       toast.error(`No se pudo guardar el tipo de dispositivo: ${getErrorMessage(err)}`);
     }
   };
-
-  const handleDeleteClick = (type: DeviceType) => { setTypeToDelete(type); setIsDeleteConfirmOpen(true); };
 
   const handleDeleteConfirm = async () => {
     if (!typeToDelete) return;
     try {
       await deleteDeviceType(typeToDelete.id);
       toast.success('Tipo de dispositivo eliminado');
-      setIsDeleteConfirmOpen(false);
-      setTypeToDelete(null);
+      setIsDeleteConfirmOpen(false); setTypeToDelete(null);
     } catch (err) {
       toast.error(`No se pudo eliminar el tipo de dispositivo: ${getErrorMessage(err)}`);
     }
@@ -103,11 +92,10 @@ export function DeviceTypes() {
     return null;
   };
 
-  const clasifName = (id?: string) => clasificaciones.find((c) => c.id === id)?.name;
+  const clasifName  = (id?: string) => clasificaciones.find((c) => c.id === id)?.name;
   const clasifColor = (name?: string) => (name && CLASIF_COLORS[name]) ? CLASIF_COLORS[name] : 'bg-gray-100 text-gray-600';
 
   const filtered = filterClasifId ? types.filter((t) => t.clasificacionId === filterClasifId) : types;
-
   const { paginatedItems: pagedTypes, page, setPage, pageSize, setPageSize, totalPages, totalItems } = usePagination(filtered, 10);
 
   return (
@@ -120,8 +108,8 @@ export function DeviceTypes() {
       </div>
 
       {clasificaciones.length > 0 && (
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex flex-wrap gap-3 items-center">
-          <select className="input-field w-52" value={filterClasifId} onChange={(e) => setFilterClasifId(e.target.value)}>
+        <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-100 flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 items-stretch sm:items-center">
+          <select className="input-field w-full sm:w-52" value={filterClasifId} onChange={(e) => setFilterClasifId(e.target.value)}>
             <option value="">Todas las clasificaciones</option>
             {clasificaciones.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
@@ -133,13 +121,13 @@ export function DeviceTypes() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 text-gray-600 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 font-medium">Código Plan</th>
-                <th className="px-6 py-3 font-medium">Clasificación</th>
-                <th className="px-6 py-3 font-medium">Descripción</th>
-                <th className="px-6 py-3 font-medium">Características</th>
-                <th className="px-6 py-3 font-medium">Marca-Modelo</th>
-                <th className="px-6 py-3 font-medium text-center">Imagen</th>
-                <th className="px-6 py-3 font-medium text-center">Acciones</th>
+                <th className="px-4 sm:px-6 py-3 font-medium">Código Plan</th>
+                <th className="px-4 sm:px-6 py-3 font-medium hidden sm:table-cell">Clasificación</th>
+                <th className="px-4 sm:px-6 py-3 font-medium">Descripción</th>
+                <th className="px-4 sm:px-6 py-3 font-medium hidden md:table-cell">Características</th>
+                <th className="px-4 sm:px-6 py-3 font-medium hidden md:table-cell">Marca-Modelo</th>
+                <th className="px-4 sm:px-6 py-3 font-medium text-center hidden sm:table-cell">Imagen</th>
+                <th className="px-4 sm:px-6 py-3 font-medium text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -148,36 +136,38 @@ export function DeviceTypes() {
                 const name = clasifName(type.clasificacionId);
                 return (
                   <tr key={type.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 font-medium text-gray-900 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-blue-600">{type.planCode}</span>
                         {status && <Badge status={status as 'New' | 'Transfer'} />}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 hidden sm:table-cell">
                       {name
                         ? <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${clasifColor(name)}`}>{name}</span>
                         : <span className="text-gray-400 text-xs">-</span>
                       }
                     </td>
-                    <td className="px-6 py-4 text-gray-700">{type.description}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-gray-700">{type.description}</td>
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-sm text-gray-600 hidden md:table-cell">
                       <div className="max-w-[200px] whitespace-pre-wrap" title={type.characteristics}>
                         {type.characteristics || '-'}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-gray-600">{type.brandModel || '-'}</td>
-                    <td className="px-6 py-4 flex justify-center">
-                      <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-gray-400 border border-gray-200">
-                        <ImageIcon className="w-5 h-5" />
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-gray-600 hidden md:table-cell">{type.brandModel || '-'}</td>
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 hidden sm:table-cell">
+                      <div className="flex justify-center">
+                        <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-gray-400 border border-gray-200">
+                          <ImageIcon className="w-5 h-5" />
+                        </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-center">
                       <div className="flex justify-center gap-2">
                         <button onClick={() => handleEdit(type)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Editar">
                           <Edit className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleDeleteClick(type)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition" title="Eliminar">
+                        <button onClick={() => { setTypeToDelete(type); setIsDeleteConfirmOpen(true); }} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition" title="Eliminar">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -194,48 +184,38 @@ export function DeviceTypes() {
           </table>
         </div>
         <Pagination
-          page={page}
-          totalPages={totalPages}
-          totalItems={totalItems}
-          pageSize={pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
+          page={page} totalPages={totalPages} totalItems={totalItems}
+          pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize}
         />
       </div>
 
       <SidePanel isOpen={isPanelOpen} onClose={() => setIsPanelOpen(false)} title={currentType ? 'Editar Tipo de Dispositivo' : 'Nuevo Tipo de Dispositivo'}>
         <div className="space-y-6 flex flex-col h-full">
           <div className="flex-1 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Código Plan *</label>
+            <FormField label="Código Plan" required>
               <input type="text" className="input-field" value={formData.planCode}
                 onChange={(e) => setFormData({ ...formData, planCode: e.target.value })} placeholder="Ej: E1, M5, Ex2" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Clasificación</label>
+            </FormField>
+            <FormField label="Clasificación">
               <select className="input-field" value={formData.clasificacionId}
                 onChange={(e) => setFormData({ ...formData, clasificacionId: e.target.value })}>
                 <option value="">Sin clasificación</option>
                 {clasificaciones.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Descripción *</label>
+            </FormField>
+            <FormField label="Descripción" required>
               <input type="text" className="input-field" value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Características</label>
+            </FormField>
+            <FormField label="Características">
               <textarea className="input-field min-h-[100px] resize-y" value={formData.characteristics}
                 onChange={(e) => setFormData({ ...formData, characteristics: e.target.value })} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Marca-Modelo</label>
+            </FormField>
+            <FormField label="Marca-Modelo">
               <input type="text" className="input-field" value={formData.brandModel}
                 onChange={(e) => setFormData({ ...formData, brandModel: e.target.value })} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Imagen de Referencia</label>
+            </FormField>
+            <FormField label="Imagen de Referencia">
               <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md bg-gray-50">
                 <div className="space-y-1 text-center">
                   <Upload className="mx-auto h-12 w-12 text-gray-400" />
@@ -243,7 +223,7 @@ export function DeviceTypes() {
                   <p className="text-xs text-gray-500">PNG, JPG hasta 2MB</p>
                 </div>
               </div>
-            </div>
+            </FormField>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-auto">
@@ -257,22 +237,14 @@ export function DeviceTypes() {
         </div>
       </SidePanel>
 
-      <Modal isOpen={isDeleteConfirmOpen} onClose={() => setIsDeleteConfirmOpen(false)} title="Confirmar Eliminación">
-        <div className="space-y-4">
-          <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-red-900">¿Eliminar tipo de dispositivo?</p>
-              {typeToDelete && <p className="text-sm text-red-700 mt-1">{typeToDelete.planCode} - {typeToDelete.description}</p>}
-              <p className="text-sm text-red-700 mt-2">Esta acción no se puede deshacer.</p>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <button onClick={handleDeleteConfirm} className="flex-1 bg-red-600 text-white font-medium py-2 rounded-lg hover:bg-red-700 transition">Eliminar</button>
-            <button onClick={() => setIsDeleteConfirmOpen(false)} className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg hover:bg-gray-50 transition">Cancelar</button>
-          </div>
-        </div>
-      </Modal>
+      <ConfirmModal
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        heading="¿Eliminar tipo de dispositivo?"
+        detail={typeToDelete ? `${typeToDelete.planCode} - ${typeToDelete.description}` : undefined}
+        warning="Esta acción no se puede deshacer."
+      />
     </div>
   );
 }

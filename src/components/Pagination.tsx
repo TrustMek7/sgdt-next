@@ -19,9 +19,10 @@ export function Pagination({ page, totalPages, totalItems, pageSize, onPageChang
   const end = Math.min(page * pageSize, totalItems);
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-white">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 sm:px-4 py-3 border-t border-gray-200 bg-white">
       <div className="flex items-center gap-2 text-sm text-gray-600">
-        <span>Filas por página:</span>
+        <span className="sm:hidden">Filas:</span>
+        <span className="hidden sm:inline">Filas por página:</span>
         <select
           value={pageSize}
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
@@ -29,7 +30,7 @@ export function Pagination({ page, totalPages, totalItems, pageSize, onPageChang
         >
           {PAGE_SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
-        <span className="ml-2 text-gray-500">
+        <span className="text-gray-500">
           {totalItems === 0 ? '0 registros' : `${start}–${end} de ${totalItems}`}
         </span>
       </div>
@@ -37,7 +38,7 @@ export function Pagination({ page, totalPages, totalItems, pageSize, onPageChang
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page === 1}
-          className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          className="p-2 sm:p-1.5 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
           title="Página anterior"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -48,7 +49,7 @@ export function Pagination({ page, totalPages, totalItems, pageSize, onPageChang
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page === totalPages}
-          className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          className="p-2 sm:p-1.5 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
           title="Página siguiente"
         >
           <ChevronRight className="w-4 h-4" />
