@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import Link from 'next/link';
+import type { Route } from 'next';
 import {
   Monitor,
   PlusCircle,
@@ -51,6 +53,7 @@ export function Dashboard() {
       icon: Monitor,
       color: 'text-blue-600',
       bg: 'bg-blue-100',
+      href: '/devices',
     },
     {
       label: 'Asignados',
@@ -58,6 +61,7 @@ export function Dashboard() {
       icon: CheckCircle,
       color: 'text-green-600',
       bg: 'bg-green-100',
+      href: '/devices?asig=asignado',
     },
     {
       label: 'Pendientes',
@@ -65,6 +69,7 @@ export function Dashboard() {
       icon: Clock,
       color: 'text-yellow-600',
       bg: 'bg-yellow-100',
+      href: '/devices?asig=pendiente',
     },
     {
       label: 'Nuevos',
@@ -72,6 +77,7 @@ export function Dashboard() {
       icon: PlusCircle,
       color: 'text-status-new',
       bg: 'bg-emerald-100',
+      href: '/devices?status=New',
     },
     {
       label: 'Traslados',
@@ -79,6 +85,7 @@ export function Dashboard() {
       icon: ArrowRightLeft,
       color: 'text-status-transfer',
       bg: 'bg-orange-100',
+      href: '/devices?status=Transfer',
     },
     {
       label: 'Bajas',
@@ -86,6 +93,7 @@ export function Dashboard() {
       icon: Trash2,
       color: 'text-red-600',
       bg: 'bg-red-100',
+      href: '/bajas',
     },
   ];
 
@@ -95,16 +103,17 @@ export function Dashboard() {
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {stats.map((stat, index) => (
-          <div
+          <Link
             key={index}
-            className="bg-white rounded-lg p-5 shadow-sm border border-gray-100 flex flex-col items-center gap-2 text-center"
+            href={stat.href as Route}
+            className="bg-white rounded-lg p-5 shadow-sm border border-gray-100 flex flex-col items-center gap-2 text-center hover:shadow-md hover:border-gray-200 transition-all group"
           >
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${stat.bg}`}>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${stat.bg} group-hover:scale-110 transition-transform`}>
               <stat.icon className={`w-5 h-5 ${stat.color}`} />
             </div>
             <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
             <p className="text-xs font-medium text-gray-500">{stat.label}</p>
-          </div>
+          </Link>
         ))}
       </div>
 

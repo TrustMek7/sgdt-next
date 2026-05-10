@@ -17,7 +17,12 @@ import { useLocationFilter } from '../hooks/useLocationFilter';
 import { usePagination } from '../hooks/usePagination';
 import { getErrorMessage } from '../lib/errorMessages';
 
-export function Devices() {
+interface DevicesProps {
+  initialStatus?: string;
+  initialAsig?: string;
+}
+
+export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) {
   const {
     devices, deviceTypes, offices, areas, dependencias, loading,
     createDevice, updateDevice, unassignDevice, reassignDevice, swapDevices, deleteDevice, retireDevice,
@@ -27,8 +32,8 @@ export function Devices() {
   // ── Filters ─────────────────────────────────────────────────────────────────
   const [search,       setSearch]       = useState('');
   const [filterClasif, setFilterClasif] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterAsig,   setFilterAsig]   = useState('');
+  const [filterStatus, setFilterStatus] = useState(initialStatus);
+  const [filterAsig,   setFilterAsig]   = useState(initialAsig);
   const filterLoc = useLocationFilter({ areas, offices });
 
   // ── Modals ──────────────────────────────────────────────────────────────────
