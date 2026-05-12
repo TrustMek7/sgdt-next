@@ -43,7 +43,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       {/* Overlay oscuro en móvil cuando el drawer está abierto */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
@@ -55,7 +55,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         fixed left-0 top-0 z-50
         transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        md:translate-x-0
+        lg:translate-x-0
       `}>
         <div className="p-6 flex items-center gap-3 border-b border-white/10">
           <div className="w-8 h-8 bg-accent rounded-md flex items-center justify-center font-bold text-lg shrink-0">
@@ -64,7 +64,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           <span className="font-bold text-xl tracking-wide">SGDT</span>
           <button
             onClick={onClose}
-            className="md:hidden ml-auto p-1 text-gray-300 hover:text-white transition"
+            className="lg:hidden ml-auto p-1 text-gray-300 hover:text-white transition"
             aria-label="Cerrar menú"
           >
             <X className="w-5 h-5" />
