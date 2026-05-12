@@ -63,6 +63,7 @@ const S = StyleSheet.create({
   signatures:    { marginTop: 40, flexDirection: 'row', justifyContent: 'space-around' },
   signLine:      { borderBottom: '1pt solid #000', width: 140, marginBottom: 4 },
   signText:      { textAlign: 'center', fontSize: 8 },
+  officeSubTitle: { fontSize: 9, fontWeight: 'bold', backgroundColor: '#EEF2F7', padding: '3 6', marginTop: 10, marginBottom: 2, borderLeft: '3pt solid #4B7AB1' },
   obsBox:        { marginTop: 20, borderTop: '0.5pt solid #ccc', paddingTop: 8 },
   obsLines:      { marginTop: 6, height: 50, border: '0.5pt solid #ccc' },
 });
@@ -96,6 +97,14 @@ function DeviceImageCell({ url, baseUrl }: { url?: string; baseUrl: string }) {
 
 // ─── Section builder ──────────────────────────────────────────────────────────
 
+type ReportSubSection = {
+  label: string;
+  newDevices: { device: Device; type: DeviceType }[];
+  transferDevices: { device: Device; type: DeviceType }[];
+  salidas: TrasladoRegistro[];
+  entradas: TrasladoRegistro[];
+};
+
 type ReportSection = {
   label: string;
   sublabel?: string;
@@ -104,6 +113,7 @@ type ReportSection = {
   salidas: TrasladoRegistro[];
   entradas: TrasladoRegistro[];
   bajas: Baja[];
+  subSections?: ReportSubSection[];
 };
 
 function buildReportSections(report: ReportBatchItem, groupBy: ReportGroupBy): ReportSection[] {
@@ -165,29 +175,158 @@ function buildReportSections(report: ReportBatchItem, groupBy: ReportGroupBy): R
 
     case 'piso': {
       const floors = [...new Set(report.offices.map((o) => o.floor))].sort((a, b) => a - b);
-      return floors
-        .map((floor) => {
-          const floorOffices = report.offices.filter((o) => o.floor === floor);
-          const officeIds = floorOffices.map((o) => o.id);
-          const areaIds = [...new Set(floorOffices.map((o) => o.areaId))];
-          return makeSection(`Piso ${floor}`, floorOffices.map((o) => o.name).join(', '), officeIds, areaIds);
-        })
-        .filter(Boolean) as ReportSection[];
+      const result: ReportSection[] = [];
+      for (const floor of floors) {
+        for (const office of report.offices.filter((o) => o.floor === floor)) {
+          const area = report.areas.find((a) => a.id === office.areaId);
+          const sublabel = area ? `(${area.name}) — Piso ${floor}` : `Piso ${floor}`;
+          const s = makeSection(office.name, sublabel, [office.id], office.areaId ? [office.areaId] : []);
+          if (s) result.push(s);
+        }
+      }
+      return result;
     }
 
     case 'area': {
-      return report.offices
-        .map((office) => {
-          const area = report.areas.find((a) => a.id === office.areaId);
-          const sublabel = area ? `${area.name} — Piso ${office.floor}` : `Piso ${office.floor}`;
-          return makeSection(office.name, sublabel, [office.id], office.areaId ? [office.areaId] : []);
-        })
-        .filter(Boolean) as ReportSection[];
+      // Group by subgerencia; each office is a sub-section; bajas shown once per subgerencia
+      const byArea = new Map<string, { areaId: string; offices: typeof report.offices }>();
+      for (const office of report.offices) {
+        const key = office.areaId || '__none__';
+        if (!byArea.has(key)) byArea.set(key, { areaId: office.areaId, offices: [] });
+        byArea.get(key)!.offices.push(office);
+      }
+      const result: ReportSection[] = [];
+      for (const { areaId, offices } of byArea.values()) {
+        const parentArea = report.areas.find((a) => a.id === areaId);
+        const bajasForArea = report.bajas.filter((b) => b.areaId === areaId);
+
+        const subSections: ReportSubSection[] = offices.flatMap((office) => {
+          const officeSet = new Set([office.id]);
+          const officeDevices = report.devices.filter(
+            (d) => d.asignacion === 'asignado' && d.destinationOfficeId && officeSet.has(d.destinationOfficeId),
+          );
+          const newDevices = officeDevices
+            .filter((d) => d.status === 'New')
+            .map((d) => ({ device: d, type: getType(d) }))
+            .filter((x): x is { device: Device; type: DeviceType } => Boolean(x.type));
+          const transferDevices = officeDevices
+            .filter((d) => d.status === 'Transfer')
+            .map((d) => ({ device: d, type: getType(d) }))
+            .filter((x): x is { device: Device; type: DeviceType } => Boolean(x.type));
+          const salidas = traslados.filter((t) => t.origenOficinaId === office.id);
+          const entradas = traslados.filter((t) => t.destinoOficinaId === office.id);
+          if (!newDevices.length && !transferDevices.length && !salidas.length && !entradas.length) return [];
+          return [{ label: `${office.name} — Piso ${office.floor}`, newDevices, transferDevices, salidas, entradas }];
+        });
+
+        if (!subSections.length && !bajasForArea.length) continue;
+        result.push({
+          label: parentArea?.name ?? 'Sin subgerencia',
+          sublabel: undefined,
+          newDevices: [], transferDevices: [], salidas: [], entradas: [],
+          bajas: bajasForArea,
+          subSections,
+        });
+      }
+      return result;
     }
 
     default:
       return [];
   }
+}
+
+// ─── PDF shared device/traslado renderer ─────────────────────────────────────
+
+function SectionDevicesPDF({ newDevices, transferDevices, salidas, entradas, baseUrl }: {
+  newDevices: { device: Device; type: DeviceType }[];
+  transferDevices: { device: Device; type: DeviceType }[];
+  salidas: TrasladoRegistro[];
+  entradas: TrasladoRegistro[];
+  baseUrl: string;
+}) {
+  return (
+    <>
+      <Text style={S.sectionTitle}>DISPOSITIVOS NUEVOS ({newDevices.length})</Text>
+      {newDevices.length === 0 ? <Text style={S.noData}>Sin registros</Text> : (
+        <View style={S.table}>
+          <TableHeader cols={[
+            { label: 'INVENTARIO', style: S.colCode }, { label: 'PLAN', style: S.colPlan },
+            { label: 'DESCRIPCIÓN', style: S.colDesc }, { label: 'CARACTERÍSTICAS', style: S.colChar },
+            { label: 'MARCA / MODELO', style: S.colBrand }, { label: 'IMAGEN', style: S.colImg },
+          ]} />
+          {newDevices.map(({ device, type }, i) => (
+            <View key={i} style={S.row} wrap={false}>
+              <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
+              <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
+              <View style={[S.cell, S.colDesc]}><Text style={S.cellText}>{type.description}</Text></View>
+              <View style={[S.cell, S.colChar]}><Text style={S.cellText}>{type.characteristics || '-'}</Text></View>
+              <View style={[S.cell, S.colBrand]}><Text style={S.cellText}>{type.brandModel || '-'}</Text></View>
+              <DeviceImageCell url={type.imageUrl} baseUrl={baseUrl} />
+            </View>
+          ))}
+        </View>
+      )}
+
+      <Text style={S.sectionTitle}>DISPOSITIVOS DE TRASLADO ({transferDevices.length})</Text>
+      {transferDevices.length === 0 ? <Text style={S.noData}>Sin registros</Text> : (
+        <View style={S.table}>
+          <TableHeader cols={[
+            { label: 'INVENTARIO', style: S.colCode }, { label: 'PLAN', style: S.colPlan },
+            { label: 'DESCRIPCIÓN', style: { width: '38%' } }, { label: 'ORIGEN', style: { width: '38%' } },
+          ]} />
+          {transferDevices.map(({ device, type }, i) => (
+            <View key={i} style={S.row} wrap={false}>
+              <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
+              <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
+              <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{type.description}</Text></View>
+              <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{device.originOfficeDescription || '-'}</Text></View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {(salidas.length > 0 || entradas.length > 0) && (
+        <View>
+          <Text style={S.sectionTitle}>HISTORIAL DE TRASLADOS</Text>
+          <Text style={S.subsectionTitle}>Salidas ({salidas.length})</Text>
+          {salidas.length === 0 ? <Text style={S.noData}>Sin registros</Text> : (
+            <View style={S.table}>
+              <TableHeader cols={[
+                { label: 'CÓDIGO', style: S.colTrasCode }, { label: 'DESTINO', style: S.colTrasOffice },
+                { label: 'ACCIÓN', style: S.colTrasAccion }, { label: 'FECHA', style: S.colTrasDate },
+              ]} />
+              {salidas.map((t, i) => (
+                <View key={i} style={S.row} wrap={false}>
+                  <View style={[S.cell, S.colTrasCode]}><Text style={S.cellText}>{t.codigoInventario || 'S/C'}</Text></View>
+                  <View style={[S.cell, S.colTrasOffice]}><Text style={S.cellText}>{t.destinoOficinaNombre || '-'}</Text></View>
+                  <View style={[S.cell, S.colTrasAccion]}><Text style={S.cellText}>{t.accion}</Text></View>
+                  <View style={[S.cell, S.colTrasDate]}><Text style={S.cellText}>{new Date(t.createdAt).toLocaleString('es-ES')}</Text></View>
+                </View>
+              ))}
+            </View>
+          )}
+          <Text style={S.subsectionTitle}>Entradas ({entradas.length})</Text>
+          {entradas.length === 0 ? <Text style={S.noData}>Sin registros</Text> : (
+            <View style={S.table}>
+              <TableHeader cols={[
+                { label: 'CÓDIGO', style: S.colTrasCode }, { label: 'ORIGEN', style: S.colTrasOffice },
+                { label: 'ACCIÓN', style: S.colTrasAccion }, { label: 'FECHA', style: S.colTrasDate },
+              ]} />
+              {entradas.map((t, i) => (
+                <View key={i} style={S.row} wrap={false}>
+                  <View style={[S.cell, S.colTrasCode]}><Text style={S.cellText}>{t.codigoInventario || 'S/C'}</Text></View>
+                  <View style={[S.cell, S.colTrasOffice]}><Text style={S.cellText}>{t.origenOficinaNombre || '-'}</Text></View>
+                  <View style={[S.cell, S.colTrasAccion]}><Text style={S.cellText}>{t.accion}</Text></View>
+                  <View style={[S.cell, S.colTrasDate]}><Text style={S.cellText}>{new Date(t.createdAt).toLocaleString('es-ES')}</Text></View>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+    </>
+  );
 }
 
 // ─── PDF Document ─────────────────────────────────────────────────────────────
@@ -217,100 +356,28 @@ function ReportPDF({ reports, baseUrl, groupBy }: { reports: ReportBatchItem[]; 
                 <Text style={S.areaTitle}>{section.label}</Text>
                 {section.sublabel && <Text style={S.sublabel}>{section.sublabel}</Text>}
 
-                {/* Nuevos */}
-                <Text style={S.sectionTitle}>DISPOSITIVOS NUEVOS ({section.newDevices.length})</Text>
-                {section.newDevices.length === 0 ? <Text style={S.noData}>Sin registros</Text> : (
-                  <View style={S.table}>
-                    <TableHeader cols={[
-                      { label: 'INVENTARIO',      style: S.colCode },
-                      { label: 'PLAN',            style: S.colPlan },
-                      { label: 'DESCRIPCIÓN',     style: S.colDesc },
-                      { label: 'CARACTERÍSTICAS', style: S.colChar },
-                      { label: 'MARCA / MODELO',  style: S.colBrand },
-                      { label: 'IMAGEN',          style: S.colImg },
-                    ]} />
-                    {section.newDevices.map(({ device, type }, i) => (
-                      <View key={i} style={S.row} wrap={false}>
-                        <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
-                        <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
-                        <View style={[S.cell, S.colDesc]}><Text style={S.cellText}>{type.description}</Text></View>
-                        <View style={[S.cell, S.colChar]}><Text style={S.cellText}>{type.characteristics || '-'}</Text></View>
-                        <View style={[S.cell, S.colBrand]}><Text style={S.cellText}>{type.brandModel || '-'}</Text></View>
-                        <DeviceImageCell url={type.imageUrl} baseUrl={baseUrl} />
+                {section.subSections ? (
+                  /* Nested: sub-sections per office, bajas once at section level */
+                  <>
+                    {section.subSections.map((sub, ssi) => (
+                      <View key={ssi}>
+                        <Text style={S.officeSubTitle}>{sub.label}</Text>
+                        <SectionDevicesPDF
+                          newDevices={sub.newDevices} transferDevices={sub.transferDevices}
+                          salidas={sub.salidas} entradas={sub.entradas} baseUrl={baseUrl}
+                        />
                       </View>
                     ))}
-                  </View>
+                  </>
+                ) : (
+                  /* Flat: devices/traslados directly in section */
+                  <SectionDevicesPDF
+                    newDevices={section.newDevices} transferDevices={section.transferDevices}
+                    salidas={section.salidas} entradas={section.entradas} baseUrl={baseUrl}
+                  />
                 )}
 
-                {/* Traslados */}
-                <Text style={S.sectionTitle}>DISPOSITIVOS DE TRASLADO ({section.transferDevices.length})</Text>
-                {section.transferDevices.length === 0 ? <Text style={S.noData}>Sin registros</Text> : (
-                  <View style={S.table}>
-                    <TableHeader cols={[
-                      { label: 'INVENTARIO',  style: S.colCode },
-                      { label: 'PLAN',        style: S.colPlan },
-                      { label: 'DESCRIPCIÓN', style: { width: '38%' } },
-                      { label: 'ORIGEN',      style: { width: '38%' } },
-                    ]} />
-                    {section.transferDevices.map(({ device, type }, i) => (
-                      <View key={i} style={S.row} wrap={false}>
-                        <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
-                        <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
-                        <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{type.description}</Text></View>
-                        <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{device.originOfficeDescription || '-'}</Text></View>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* Historial de traslados */}
-                {(section.salidas.length > 0 || section.entradas.length > 0) && (
-                  <View>
-                    <Text style={S.sectionTitle}>HISTORIAL DE TRASLADOS</Text>
-
-                    <Text style={S.subsectionTitle}>Salidas ({section.salidas.length})</Text>
-                    {section.salidas.length === 0 ? <Text style={S.noData}>Sin registros</Text> : (
-                      <View style={S.table}>
-                        <TableHeader cols={[
-                          { label: 'CÓDIGO',  style: S.colTrasCode },
-                          { label: 'DESTINO', style: S.colTrasOffice },
-                          { label: 'ACCIÓN',  style: S.colTrasAccion },
-                          { label: 'FECHA',   style: S.colTrasDate },
-                        ]} />
-                        {section.salidas.map((t, i) => (
-                          <View key={i} style={S.row} wrap={false}>
-                            <View style={[S.cell, S.colTrasCode]}><Text style={S.cellText}>{t.codigoInventario || 'S/C'}</Text></View>
-                            <View style={[S.cell, S.colTrasOffice]}><Text style={S.cellText}>{t.destinoOficinaNombre || '-'}</Text></View>
-                            <View style={[S.cell, S.colTrasAccion]}><Text style={S.cellText}>{t.accion}</Text></View>
-                            <View style={[S.cell, S.colTrasDate]}><Text style={S.cellText}>{new Date(t.createdAt).toLocaleString('es-ES')}</Text></View>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-
-                    <Text style={S.subsectionTitle}>Entradas ({section.entradas.length})</Text>
-                    {section.entradas.length === 0 ? <Text style={S.noData}>Sin registros</Text> : (
-                      <View style={S.table}>
-                        <TableHeader cols={[
-                          { label: 'CÓDIGO', style: S.colTrasCode },
-                          { label: 'ORIGEN', style: S.colTrasOffice },
-                          { label: 'ACCIÓN', style: S.colTrasAccion },
-                          { label: 'FECHA',  style: S.colTrasDate },
-                        ]} />
-                        {section.entradas.map((t, i) => (
-                          <View key={i} style={S.row} wrap={false}>
-                            <View style={[S.cell, S.colTrasCode]}><Text style={S.cellText}>{t.codigoInventario || 'S/C'}</Text></View>
-                            <View style={[S.cell, S.colTrasOffice]}><Text style={S.cellText}>{t.origenOficinaNombre || '-'}</Text></View>
-                            <View style={[S.cell, S.colTrasAccion]}><Text style={S.cellText}>{t.accion}</Text></View>
-                            <View style={[S.cell, S.colTrasDate]}><Text style={S.cellText}>{new Date(t.createdAt).toLocaleString('es-ES')}</Text></View>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                )}
-
-                {/* Bajas */}
+                {/* Bajas always at section level */}
                 <Text style={S.sectionTitle}>BAJAS ({section.bajas.length})</Text>
                 {section.bajas.length === 0 ? <Text style={S.noData}>Sin registros</Text> : (
                   <View style={S.table}>
@@ -445,49 +512,53 @@ export function Reports() {
       const sections = buildReportSections(report, groupBy);
       const rows: (string | number)[][] = [];
 
-      for (const section of sections) {
-        rows.push([`${section.label}${section.sublabel ? ` — ${section.sublabel}` : ''}`]);
-        rows.push([]);
-
+      const pushDevices = (
+        newDevices: ReportSection['newDevices'],
+        transferDevices: ReportSection['transferDevices'],
+        salidas: TrasladoRegistro[],
+        entradas: TrasladoRegistro[],
+      ) => {
         rows.push(['NUEVOS']);
         rows.push(['Código', 'Plan', 'Descripción', 'Características', 'Marca/Modelo']);
-        for (const { device, type } of section.newDevices) {
-          rows.push([device.inventoryCode || '', type.planCode, type.description, type.characteristics || '', type.brandModel || '']);
-        }
-        if (!section.newDevices.length) rows.push(['Sin registros']);
+        for (const { device, type } of newDevices) rows.push([device.inventoryCode || '', type.planCode, type.description, type.characteristics || '', type.brandModel || '']);
+        if (!newDevices.length) rows.push(['Sin registros']);
         rows.push([]);
 
         rows.push(['TRASLADOS']);
         rows.push(['Código', 'Plan', 'Descripción', 'Origen']);
-        for (const { device, type } of section.transferDevices) {
-          rows.push([device.inventoryCode || '', type.planCode, type.description, device.originOfficeDescription || '']);
-        }
-        if (!section.transferDevices.length) rows.push(['Sin registros']);
+        for (const { device, type } of transferDevices) rows.push([device.inventoryCode || '', type.planCode, type.description, device.originOfficeDescription || '']);
+        if (!transferDevices.length) rows.push(['Sin registros']);
         rows.push([]);
 
-        if (section.salidas.length > 0 || section.entradas.length > 0) {
+        if (salidas.length > 0 || entradas.length > 0) {
           rows.push(['HISTORIAL DE TRASLADOS']);
-          rows.push(['SALIDAS']);
-          rows.push(['Código', 'Destino', 'Acción', 'Fecha']);
-          for (const t of section.salidas) {
-            rows.push([t.codigoInventario || 'S/C', t.destinoOficinaNombre || '-', t.accion, new Date(t.createdAt).toLocaleString('es-ES')]);
-          }
-          if (!section.salidas.length) rows.push(['Sin registros']);
+          rows.push(['SALIDAS']); rows.push(['Código', 'Destino', 'Acción', 'Fecha']);
+          for (const t of salidas) rows.push([t.codigoInventario || 'S/C', t.destinoOficinaNombre || '-', t.accion, new Date(t.createdAt).toLocaleString('es-ES')]);
+          if (!salidas.length) rows.push(['Sin registros']);
           rows.push([]);
-          rows.push(['ENTRADAS']);
-          rows.push(['Código', 'Origen', 'Acción', 'Fecha']);
-          for (const t of section.entradas) {
-            rows.push([t.codigoInventario || 'S/C', t.origenOficinaNombre || '-', t.accion, new Date(t.createdAt).toLocaleString('es-ES')]);
-          }
-          if (!section.entradas.length) rows.push(['Sin registros']);
+          rows.push(['ENTRADAS']); rows.push(['Código', 'Origen', 'Acción', 'Fecha']);
+          for (const t of entradas) rows.push([t.codigoInventario || 'S/C', t.origenOficinaNombre || '-', t.accion, new Date(t.createdAt).toLocaleString('es-ES')]);
+          if (!entradas.length) rows.push(['Sin registros']);
           rows.push([]);
+        }
+      };
+
+      for (const section of sections) {
+        rows.push([`${section.label}${section.sublabel ? ` — ${section.sublabel}` : ''}`]);
+        rows.push([]);
+
+        if (section.subSections) {
+          for (const sub of section.subSections) {
+            rows.push([`  ${sub.label}`]);
+            pushDevices(sub.newDevices, sub.transferDevices, sub.salidas, sub.entradas);
+          }
+        } else {
+          pushDevices(section.newDevices, section.transferDevices, section.salidas, section.entradas);
         }
 
         rows.push(['BAJAS']);
         rows.push(['Subgerencia', 'Inventario', 'Descripción', 'Oficina', 'Origen', 'Motivo']);
-        for (const b of section.bajas) {
-          rows.push([b.areaName || section.label, b.inventoryCode || 'S/C', b.description, b.officeName || '-', b.origin || '-', b.reason || '-']);
-        }
+        for (const b of section.bajas) rows.push([b.areaName || section.label, b.inventoryCode || 'S/C', b.description, b.officeName || '-', b.origin || '-', b.reason || '-']);
         if (!section.bajas.length) rows.push(['Sin registros']);
         rows.push([]); rows.push([]);
       }
@@ -637,50 +708,112 @@ export function Reports() {
                         {section.sublabel && <p className="text-xs text-blue-600 mt-0.5">{section.sublabel}</p>}
                       </div>
                       <div className="px-6 py-4 space-y-4">
-                        <PreviewTable
-                          title={`Nuevos (${section.newDevices.length})`}
-                          cols={['Inventario', 'Plan', 'Descripción', 'Características', 'Marca/Modelo', 'Imagen']}
-                          rows={section.newDevices.map(({ device, type }) => [
-                            device.inventoryCode || 'S/C', type.planCode, type.description,
-                            type.characteristics || '-', type.brandModel || '-', type.imageUrl ? '🖼' : '-',
-                          ])}
-                        />
-                        <PreviewTable
-                          title={`Traslados (${section.transferDevices.length})`}
-                          cols={['Inventario', 'Plan', 'Descripción', 'Origen']}
-                          rows={section.transferDevices.map(({ device, type }) => [
-                            device.inventoryCode || 'S/C', type.planCode, type.description,
-                            device.originOfficeDescription || '-',
-                          ])}
-                        />
-                        {(section.salidas.length > 0 || section.entradas.length > 0) && (
+                        {section.subSections ? (
+                          /* Nested: one block per office, bajas once at the end */
+                          <>
+                            {section.subSections.map((sub, ssi) => (
+                              <div key={ssi} className="border border-gray-200 rounded-lg overflow-hidden">
+                                <div className="px-4 py-2 bg-indigo-50 border-b border-indigo-100">
+                                  <p className="text-xs font-semibold text-indigo-800">{sub.label}</p>
+                                </div>
+                                <div className="px-4 py-3 space-y-3">
+                                  <PreviewTable
+                                    title={`Nuevos (${sub.newDevices.length})`}
+                                    cols={['Inventario', 'Plan', 'Descripción', 'Características', 'Marca/Modelo']}
+                                    rows={sub.newDevices.map(({ device, type }) => [
+                                      device.inventoryCode || 'S/C', type.planCode, type.description,
+                                      type.characteristics || '-', type.brandModel || '-',
+                                    ])}
+                                  />
+                                  <PreviewTable
+                                    title={`Traslados (${sub.transferDevices.length})`}
+                                    cols={['Inventario', 'Plan', 'Descripción', 'Origen']}
+                                    rows={sub.transferDevices.map(({ device, type }) => [
+                                      device.inventoryCode || 'S/C', type.planCode, type.description,
+                                      device.originOfficeDescription || '-',
+                                    ])}
+                                  />
+                                  {(sub.salidas.length > 0 || sub.entradas.length > 0) && (
+                                    <>
+                                      <PreviewTable
+                                        title={`Salidas (${sub.salidas.length})`}
+                                        cols={['Código', 'Destino', 'Acción', 'Fecha']}
+                                        rows={sub.salidas.map((t) => [
+                                          t.codigoInventario || 'S/C', t.destinoOficinaNombre || '-',
+                                          t.accion, new Date(t.createdAt).toLocaleString('es-ES'),
+                                        ])}
+                                      />
+                                      <PreviewTable
+                                        title={`Entradas (${sub.entradas.length})`}
+                                        cols={['Código', 'Origen', 'Acción', 'Fecha']}
+                                        rows={sub.entradas.map((t) => [
+                                          t.codigoInventario || 'S/C', t.origenOficinaNombre || '-',
+                                          t.accion, new Date(t.createdAt).toLocaleString('es-ES'),
+                                        ])}
+                                      />
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                            <PreviewTable
+                              title={`Bajas de la subgerencia (${section.bajas.length})`}
+                              cols={['Subgerencia', 'Inventario', 'Descripción', 'Oficina', 'Origen', 'Motivo']}
+                              rows={section.bajas.map((b) => [
+                                b.areaName || section.label, b.inventoryCode || 'S/C', b.description,
+                                b.officeName || '-', b.origin || '-', b.reason || '-',
+                              ])}
+                            />
+                          </>
+                        ) : (
+                          /* Flat: standard section */
                           <>
                             <PreviewTable
-                              title={`Salidas (${section.salidas.length})`}
-                              cols={['Código', 'Destino', 'Acción', 'Fecha']}
-                              rows={section.salidas.map((t) => [
-                                t.codigoInventario || 'S/C', t.destinoOficinaNombre || '-',
-                                t.accion, new Date(t.createdAt).toLocaleString('es-ES'),
+                              title={`Nuevos (${section.newDevices.length})`}
+                              cols={['Inventario', 'Plan', 'Descripción', 'Características', 'Marca/Modelo', 'Imagen']}
+                              rows={section.newDevices.map(({ device, type }) => [
+                                device.inventoryCode || 'S/C', type.planCode, type.description,
+                                type.characteristics || '-', type.brandModel || '-', type.imageUrl ? '[img]' : '-',
                               ])}
                             />
                             <PreviewTable
-                              title={`Entradas (${section.entradas.length})`}
-                              cols={['Código', 'Origen', 'Acción', 'Fecha']}
-                              rows={section.entradas.map((t) => [
-                                t.codigoInventario || 'S/C', t.origenOficinaNombre || '-',
-                                t.accion, new Date(t.createdAt).toLocaleString('es-ES'),
+                              title={`Traslados (${section.transferDevices.length})`}
+                              cols={['Inventario', 'Plan', 'Descripción', 'Origen']}
+                              rows={section.transferDevices.map(({ device, type }) => [
+                                device.inventoryCode || 'S/C', type.planCode, type.description,
+                                device.originOfficeDescription || '-',
+                              ])}
+                            />
+                            {(section.salidas.length > 0 || section.entradas.length > 0) && (
+                              <>
+                                <PreviewTable
+                                  title={`Salidas (${section.salidas.length})`}
+                                  cols={['Código', 'Destino', 'Acción', 'Fecha']}
+                                  rows={section.salidas.map((t) => [
+                                    t.codigoInventario || 'S/C', t.destinoOficinaNombre || '-',
+                                    t.accion, new Date(t.createdAt).toLocaleString('es-ES'),
+                                  ])}
+                                />
+                                <PreviewTable
+                                  title={`Entradas (${section.entradas.length})`}
+                                  cols={['Código', 'Origen', 'Acción', 'Fecha']}
+                                  rows={section.entradas.map((t) => [
+                                    t.codigoInventario || 'S/C', t.origenOficinaNombre || '-',
+                                    t.accion, new Date(t.createdAt).toLocaleString('es-ES'),
+                                  ])}
+                                />
+                              </>
+                            )}
+                            <PreviewTable
+                              title={`Bajas (${section.bajas.length})`}
+                              cols={['Subgerencia', 'Inventario', 'Descripción', 'Oficina', 'Origen', 'Motivo']}
+                              rows={section.bajas.map((b) => [
+                                b.areaName || section.label, b.inventoryCode || 'S/C', b.description,
+                                b.officeName || '-', b.origin || '-', b.reason || '-',
                               ])}
                             />
                           </>
                         )}
-                        <PreviewTable
-                          title={`Bajas (${section.bajas.length})`}
-                          cols={['Subgerencia', 'Inventario', 'Descripción', 'Oficina', 'Origen', 'Motivo']}
-                          rows={section.bajas.map((b) => [
-                            b.areaName || section.label, b.inventoryCode || 'S/C', b.description,
-                            b.officeName || '-', b.origin || '-', b.reason || '-',
-                          ])}
-                        />
                       </div>
                     </div>
                   ))}
