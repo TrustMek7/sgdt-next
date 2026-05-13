@@ -4,7 +4,7 @@ import React from 'react';
 import { Document, Page, Text, View, Image as PDFImage, type ViewProps } from '@react-pdf/renderer';
 import type { Device, DeviceType, Clasificacion, TrasladoRegistro, ReportBatchItem, ReportGroupBy } from '../../lib/types';
 import { S } from './pdfStyles';
-import { buildReportSections, groupByClasif } from './buildSections';
+import { buildReportSections, groupByClasif, isElectronicsClasif, aggregateByType } from './buildSections';
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
 
@@ -54,23 +54,40 @@ export function SectionDevicesPDF({ newDevices, transferDevices, salidas, entrad
         newGroups.map(({ name, items }, gi) => (
           <View key={gi}>
             {newGroups.length > 1 && <Text style={S.clasifTitle}>{name.toUpperCase()} ({items.length})</Text>}
-            <View style={S.table}>
-              <TableHeader cols={[
-                { label: 'INVENTARIO', style: S.colCode }, { label: 'PLAN', style: S.colPlan },
-                { label: 'DESCRIPCIÓN', style: S.colDesc }, { label: 'CARACTERÍSTICAS', style: S.colChar },
-                { label: 'MARCA / MODELO', style: S.colBrand }, { label: 'IMAGEN', style: S.colImg },
-              ]} />
-              {items.map(({ device, type }, i) => (
-                <View key={i} style={S.row} wrap={false}>
-                  <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
-                  <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
-                  <View style={[S.cell, S.colDesc]}><Text style={S.cellText}>{type.description}</Text></View>
-                  <View style={[S.cell, S.colChar]}><Text style={S.cellText}>{type.characteristics || '-'}</Text></View>
-                  <View style={[S.cell, S.colBrand]}><Text style={S.cellText}>{type.brandModel || '-'}</Text></View>
-                  <DeviceImageCell url={type.imageUrl} baseUrl={baseUrl} />
-                </View>
-              ))}
-            </View>
+            {!isElectronicsClasif(name) ? (
+              <View style={S.table}>
+                <TableHeader cols={[
+                  { label: 'CÓDIGO', style: { width: '20%' } },
+                  { label: 'DESCRIPCIÓN', style: { width: '60%' } },
+                  { label: 'CANTIDAD', style: { width: '20%', borderRight: 0 } },
+                ]} />
+                {aggregateByType(items).map(({ type, count }, i) => (
+                  <View key={i} style={S.row} wrap={false}>
+                    <View style={[S.cell, { width: '20%' }]}><Text style={S.cellText}>{type.planCode}</Text></View>
+                    <View style={[S.cell, { width: '60%' }]}><Text style={S.cellText}>{type.description}</Text></View>
+                    <View style={[S.cell, { width: '20%', borderRight: 0 }]}><Text style={S.cellText}>{count}</Text></View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={S.table}>
+                <TableHeader cols={[
+                  { label: 'INVENTARIO', style: S.colCode }, { label: 'PLAN', style: S.colPlan },
+                  { label: 'DESCRIPCIÓN', style: S.colDesc }, { label: 'CARACTERÍSTICAS', style: S.colChar },
+                  { label: 'MARCA / MODELO', style: S.colBrand }, { label: 'IMAGEN', style: S.colImg },
+                ]} />
+                {items.map(({ device, type }, i) => (
+                  <View key={i} style={S.row} wrap={false}>
+                    <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
+                    <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
+                    <View style={[S.cell, S.colDesc]}><Text style={S.cellText}>{type.description}</Text></View>
+                    <View style={[S.cell, S.colChar]}><Text style={S.cellText}>{type.characteristics || '-'}</Text></View>
+                    <View style={[S.cell, S.colBrand]}><Text style={S.cellText}>{type.brandModel || '-'}</Text></View>
+                    <DeviceImageCell url={type.imageUrl} baseUrl={baseUrl} />
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         ))
       )}
@@ -81,20 +98,37 @@ export function SectionDevicesPDF({ newDevices, transferDevices, salidas, entrad
         transferGroups.map(({ name, items }, gi) => (
           <View key={gi}>
             {transferGroups.length > 1 && <Text style={S.clasifTitle}>{name.toUpperCase()} ({items.length})</Text>}
-            <View style={S.table}>
-              <TableHeader cols={[
-                { label: 'INVENTARIO', style: S.colCode }, { label: 'PLAN', style: S.colPlan },
-                { label: 'DESCRIPCIÓN', style: { width: '38%' } }, { label: 'ORIGEN', style: { width: '38%' } },
-              ]} />
-              {items.map(({ device, type }, i) => (
-                <View key={i} style={S.row} wrap={false}>
-                  <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
-                  <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
-                  <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{type.description}</Text></View>
-                  <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{device.originOfficeDescription || '-'}</Text></View>
-                </View>
-              ))}
-            </View>
+            {!isElectronicsClasif(name) ? (
+              <View style={S.table}>
+                <TableHeader cols={[
+                  { label: 'CÓDIGO', style: { width: '20%' } },
+                  { label: 'DESCRIPCIÓN', style: { width: '60%' } },
+                  { label: 'CANTIDAD', style: { width: '20%', borderRight: 0 } },
+                ]} />
+                {aggregateByType(items).map(({ type, count }, i) => (
+                  <View key={i} style={S.row} wrap={false}>
+                    <View style={[S.cell, { width: '20%' }]}><Text style={S.cellText}>{type.planCode}</Text></View>
+                    <View style={[S.cell, { width: '60%' }]}><Text style={S.cellText}>{type.description}</Text></View>
+                    <View style={[S.cell, { width: '20%', borderRight: 0 }]}><Text style={S.cellText}>{count}</Text></View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={S.table}>
+                <TableHeader cols={[
+                  { label: 'INVENTARIO', style: S.colCode }, { label: 'PLAN', style: S.colPlan },
+                  { label: 'DESCRIPCIÓN', style: { width: '38%' } }, { label: 'ORIGEN', style: { width: '38%' } },
+                ]} />
+                {items.map(({ device, type }, i) => (
+                  <View key={i} style={S.row} wrap={false}>
+                    <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
+                    <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
+                    <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{type.description}</Text></View>
+                    <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{device.originOfficeDescription || '-'}</Text></View>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         ))
       )}

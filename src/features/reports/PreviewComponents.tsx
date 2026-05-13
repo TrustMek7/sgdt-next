@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Device, DeviceType, Clasificacion, TrasladoRegistro } from '../../lib/types';
-import { groupByClasif } from './buildSections';
+import { groupByClasif, isElectronicsClasif, aggregateByType } from './buildSections';
 
 // ─── Basic table ──────────────────────────────────────────────────────────────
 
@@ -53,14 +53,24 @@ export function SectionPreview({ newDevices, transferDevices, salidas, entradas,
                 {newGroups.length > 1 && (
                   <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wide mb-1">{name} ({items.length})</p>
                 )}
-                <PreviewTable
-                  title=""
-                  cols={['Inventario', 'Plan', 'Descripción', 'Características', 'Marca/Modelo', 'Imagen']}
-                  rows={items.map(({ device, type }) => [
-                    device.inventoryCode || 'S/C', type.planCode, type.description,
-                    type.characteristics || '-', type.brandModel || '-', type.imageUrl ? '[img]' : '-',
-                  ])}
-                />
+                {!isElectronicsClasif(name) ? (
+                  <PreviewTable
+                    title=""
+                    cols={['Código', 'Descripción', 'Cantidad']}
+                    rows={aggregateByType(items).map(({ type, count }) => [
+                      type.planCode, type.description, String(count),
+                    ])}
+                  />
+                ) : (
+                  <PreviewTable
+                    title=""
+                    cols={['Inventario', 'Plan', 'Descripción', 'Características', 'Marca/Modelo', 'Imagen']}
+                    rows={items.map(({ device, type }) => [
+                      device.inventoryCode || 'S/C', type.planCode, type.description,
+                      type.characteristics || '-', type.brandModel || '-', type.imageUrl ? '[img]' : '-',
+                    ])}
+                  />
+                )}
               </div>
             ))
         }
@@ -76,14 +86,24 @@ export function SectionPreview({ newDevices, transferDevices, salidas, entradas,
                 {transferGroups.length > 1 && (
                   <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wide mb-1">{name} ({items.length})</p>
                 )}
-                <PreviewTable
-                  title=""
-                  cols={['Inventario', 'Plan', 'Descripción', 'Origen']}
-                  rows={items.map(({ device, type }) => [
-                    device.inventoryCode || 'S/C', type.planCode, type.description,
-                    device.originOfficeDescription || '-',
-                  ])}
-                />
+                {!isElectronicsClasif(name) ? (
+                  <PreviewTable
+                    title=""
+                    cols={['Código', 'Descripción', 'Cantidad']}
+                    rows={aggregateByType(items).map(({ type, count }) => [
+                      type.planCode, type.description, String(count),
+                    ])}
+                  />
+                ) : (
+                  <PreviewTable
+                    title=""
+                    cols={['Inventario', 'Plan', 'Descripción', 'Origen']}
+                    rows={items.map(({ device, type }) => [
+                      device.inventoryCode || 'S/C', type.planCode, type.description,
+                      device.originOfficeDescription || '-',
+                    ])}
+                  />
+                )}
               </div>
             ))
         }

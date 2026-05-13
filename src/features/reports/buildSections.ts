@@ -1,6 +1,22 @@
 import type { ReportBatchItem, ReportGroupBy, Device, DeviceType, Clasificacion } from '../../lib/types';
 import type { ReportSection } from './types';
 
+export function isElectronicsClasif(name: string): boolean {
+  const n = name.toLowerCase();
+  return n.includes('electrónico') || n.includes('electronico');
+}
+
+export function aggregateByType(
+  items: { device: Device; type: DeviceType }[],
+): { type: DeviceType; count: number }[] {
+  const map = new Map<string, { type: DeviceType; count: number }>();
+  for (const { type } of items) {
+    if (!map.has(type.id)) map.set(type.id, { type, count: 0 });
+    map.get(type.id)!.count++;
+  }
+  return [...map.values()];
+}
+
 export function groupByClasif(
   items: { device: Device; type: DeviceType }[],
   clasificaciones: Clasificacion[],
