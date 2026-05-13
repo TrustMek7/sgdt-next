@@ -106,6 +106,26 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
   const officeName = (id: string) => offices.find((o) => o.id === id)?.name ?? '-';
   const clasifName = (id?: string) => clasificaciones.find((c) => c.id === id)?.name ?? '';
 
+  const FURNITURE_KEYWORDS = ['mueble', 'mobiliario', 'otro'];
+  const selectedType   = deviceTypes.find((t) => t.id === formData.typeId);
+  const selectedClasif = clasificaciones.find((c) => c.id === selectedType?.clasificacionId);
+  const isFurnitureLike = Boolean(
+    selectedClasif &&
+    FURNITURE_KEYWORDS.some((k) => selectedClasif.name.toLowerCase().includes(k)),
+  );
+
+  const generateFurnitureCodes = (typeId: string, officeId: string, qty: number): string[] => {
+    const type   = deviceTypes.find((t) => t.id === typeId);
+    const office = offices.find((o) => o.id === officeId);
+    if (!type || !office) return Array(qty).fill('') as string[];
+    const officeAbbrev = office.name.split(/\s+/).map((w) => w[0]?.toUpperCase() ?? '').join('').slice(0, 4);
+    const typeAbbrev   = type.description.slice(0, 3).toUpperCase();
+    const existing     = devices.filter((d) => d.typeId === typeId && d.destinationOfficeId === officeId).length;
+    return Array.from({ length: qty }, (_, i) =>
+      `${officeAbbrev}-${typeAbbrev}-${String(existing + i + 1).padStart(3, '0')}`,
+    );
+  };
+
   // ── Create/Edit form ─────────────────────────────────────────────────────────
   const resetForm = () => {
     setFormData({ status: '', typeId: '', inventoryCodes: [''], destinationOfficeId: '', originOfficeDescription: '', quantity: 1 });
@@ -142,11 +162,14 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
         await updateDevice(editing.id, payload);
         toast.success('Dispositivo actualizado');
       } else {
+        const codes = isFurnitureLike
+          ? generateFurnitureCodes(formData.typeId, formData.destinationOfficeId, formData.quantity)
+          : formData.inventoryCodes.filter(Boolean);
         const payload: DeviceCreatePayload = {
           status: formData.status as 'New' | 'Transfer', typeId: formData.typeId,
           destinationOfficeId: formData.destinationOfficeId,
           originOfficeDescription: formData.originOfficeDescription || undefined,
-          inventoryCodes: formData.inventoryCodes.filter(Boolean),
+          inventoryCodes: codes,
           quantity: formData.quantity,
         };
         const res = await createDevice(payload);
@@ -399,6 +422,15 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
                 onChange={(e) => setFormData({ ...formData, inventoryCodes: [e.target.value] })}
                 className="input-field" placeholder="Código de inventario (opcional)" />
             </FormField>
+          ) : isFurnitureLike ? (
+            formData.typeId && formData.destinationOfficeId ? (
+              <div className="text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 leading-relaxed">
+                <span className="font-medium">Códigos a generar: </span>
+                {generateFurnitureCodes(formData.typeId, formData.destinationOfficeId, formData.quantity).join(', ')}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">Los códigos se generarán automáticamente al seleccionar el área destino.</p>
+            )
           ) : (
             <FormField label="Códigos de inventario">
               <div className="space-y-2 max-h-40 overflow-y-auto">
