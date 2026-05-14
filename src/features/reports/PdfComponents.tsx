@@ -35,7 +35,7 @@ function DeviceImageCell({ url, baseUrl }: { url?: string; baseUrl: string }) {
 
 // ─── Section devices (PDF) — groups by classification ─────────────────────────
 
-export function SectionDevicesPDF({ newDevices, transferDevices, salidas, entradas, baseUrl, clasificaciones }: {
+export function SectionDevicesPDF({ newDevices, transferDevices, salidas: _salidas, entradas: _entradas, baseUrl, clasificaciones }: {
   newDevices: { device: Device; type: DeviceType }[];
   transferDevices: { device: Device; type: DeviceType }[];
   salidas: TrasladoRegistro[];
@@ -133,7 +133,7 @@ export function SectionDevicesPDF({ newDevices, transferDevices, salidas, entrad
         ))
       )}
 
-      {/* ── Historial ──────────────────────────────────────────────────────── */}
+      {/* ── Historial — TODO: definir filtro de rango de fechas antes de mostrar
       {(salidas.length > 0 || entradas.length > 0) && (
         <View>
           <Text style={S.sectionTitle}>HISTORIAL DE TRASLADOS</Text>
@@ -173,6 +173,7 @@ export function SectionDevicesPDF({ newDevices, transferDevices, salidas, entrad
           )}
         </View>
       )}
+      */}
     </>
   );
 }

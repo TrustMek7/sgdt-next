@@ -109,7 +109,7 @@ export function SectionPreview({ newDevices, transferDevices, salidas, entradas,
         }
       </div>
 
-      {/* Historial */}
+      {/* Historial — TODO: definir filtro de rango de fechas antes de mostrar
       {(salidas.length > 0 || entradas.length > 0) && (
         <div className="space-y-3">
           <p className="text-sm font-semibold text-gray-800">Historial de traslados</p>
@@ -131,6 +131,7 @@ export function SectionPreview({ newDevices, transferDevices, salidas, entradas,
           />
         </div>
       )}
+      */}
     </div>
   );
 }
