@@ -31,7 +31,7 @@ export function PreviewTable({ title, cols, rows }: { title: string; cols: strin
 
 // ─── Devices + historial section — groups by classification ───────────────────
 
-export function SectionPreview({ newDevices, transferDevices, salidas, entradas, clasificaciones }: {
+export function SectionPreview({ newDevices, transferDevices, salidas: _salidas, entradas: _entradas, clasificaciones }: {
   newDevices: { device: Device; type: DeviceType }[];
   transferDevices: { device: Device; type: DeviceType }[];
   salidas: TrasladoRegistro[];
