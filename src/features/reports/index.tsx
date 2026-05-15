@@ -103,14 +103,17 @@ export function Reports() {
       const sections  = buildReportSections(report, groupBy);
       const rows: (string | number)[][] = [];
 
+      type DeviceItem = { device: Parameters<typeof groupByClasif>[0][number]['device']; type: Parameters<typeof groupByClasif>[0][number]['type'] };
       const pushDevices = (
-        newDevices: ReportBatchItem['devices'] extends (infer _)[] ? { device: Parameters<typeof groupByClasif>[0][number]['device']; type: Parameters<typeof groupByClasif>[0][number]['type'] }[] : never,
-        transferDevices: typeof newDevices,
+        newDevices: DeviceItem[],
+        transferDevices: DeviceItem[],
+        transferRedistribuido: DeviceItem[],
         salidas: TrasladoRegistro[],
         entradas: TrasladoRegistro[],
       ) => {
-        const newGroups      = groupByClasif(newDevices, report.clasificaciones);
-        const transferGroups = groupByClasif(transferDevices, report.clasificaciones);
+        const newGroups           = groupByClasif(newDevices, report.clasificaciones);
+        const transferGroups      = groupByClasif(transferDevices, report.clasificaciones);
+        const redistribuidoGroups = groupByClasif(transferRedistribuido, report.clasificaciones);
 
         rows.push(['NUEVOS']);
         for (const { name, items } of newGroups) {
@@ -132,6 +135,16 @@ export function Reports() {
         if (!transferDevices.length) rows.push(['Sin registros']);
         rows.push([]);
 
+        rows.push([`TRASLADOS — REDISTRIBUIDOS (${transferRedistribuido.length})`]);
+        for (const { name, items } of redistribuidoGroups) {
+          if (redistribuidoGroups.length > 1) rows.push([`  ${name.toUpperCase()} (${items.length})`]);
+          rows.push(['Código', 'Plan', 'Descripción', 'Origen', 'Destino redistribución']);
+          for (const { device, type } of items)
+            rows.push([device.inventoryCode || '', type.planCode, type.description, device.originOfficeDescription || '', device.destinoRedistribucion || '']);
+        }
+        if (!transferRedistribuido.length) rows.push(['Sin registros']);
+        rows.push([]);
+
         if (salidas.length > 0 || entradas.length > 0) {
           rows.push(['HISTORIAL DE TRASLADOS']);
           rows.push(['SALIDAS']); rows.push(['Código', 'Destino', 'Acción', 'Fecha']);
@@ -151,10 +164,10 @@ export function Reports() {
         if (section.subSections) {
           for (const sub of section.subSections) {
             rows.push([`  ${sub.label}`]);
-            pushDevices(sub.newDevices, sub.transferDevices, sub.salidas, sub.entradas);
+            pushDevices(sub.newDevices, sub.transferDevices, sub.transferRedistribuido, sub.salidas, sub.entradas);
           }
         } else {
-          pushDevices(section.newDevices, section.transferDevices, section.salidas, section.entradas);
+          pushDevices(section.newDevices, section.transferDevices, section.transferRedistribuido, section.salidas, section.entradas);
         }
         rows.push(['BAJAS']);
         rows.push(['Subgerencia', 'Inventario', 'Descripción', 'Oficina', 'Origen', 'Motivo']);
@@ -310,6 +323,7 @@ export function Reports() {
                                 <div className="px-4 py-3">
                                   <SectionPreview
                                     newDevices={sub.newDevices} transferDevices={sub.transferDevices}
+                                    transferRedistribuido={sub.transferRedistribuido}
                                     salidas={sub.salidas} entradas={sub.entradas}
                                     clasificaciones={report.clasificaciones}
                                   />
@@ -329,6 +343,7 @@ export function Reports() {
                           <>
                             <SectionPreview
                               newDevices={section.newDevices} transferDevices={section.transferDevices}
+                              transferRedistribuido={section.transferRedistribuido}
                               salidas={section.salidas} entradas={section.entradas}
                               clasificaciones={report.clasificaciones}
                             />

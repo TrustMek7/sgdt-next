@@ -55,15 +55,17 @@ export function buildReportSections(report: ReportBatchItem, groupBy: ReportGrou
       .filter((d) => d.status === 'New')
       .map((d) => ({ device: d, type: getType(d) }))
       .filter((x): x is { device: Device; type: DeviceType } => Boolean(x.type));
-    const transferDevices = officeDevices
+    const allTransfer = officeDevices
       .filter((d) => d.status === 'Transfer')
       .map((d) => ({ device: d, type: getType(d) }))
       .filter((x): x is { device: Device; type: DeviceType } => Boolean(x.type));
+    const transferDevices      = allTransfer.filter((x) => x.device.tipoTraslado !== 'redistribuido');
+    const transferRedistribuido = allTransfer.filter((x) => x.device.tipoTraslado === 'redistribuido');
     const salidas = traslados.filter((t) => t.origenOficinaId != null && officeSet.has(t.origenOficinaId));
     const entradas = traslados.filter((t) => t.destinoOficinaId != null && officeSet.has(t.destinoOficinaId));
     const bajas    = report.bajas.filter((b) => areaSet.has(b.areaId));
-    if (!newDevices.length && !transferDevices.length && !salidas.length && !entradas.length && !bajas.length) return null;
-    return { label, sublabel, newDevices, transferDevices, salidas, entradas, bajas };
+    if (!newDevices.length && !allTransfer.length && !salidas.length && !entradas.length && !bajas.length) return null;
+    return { label, sublabel, newDevices, transferDevices, transferRedistribuido, salidas, entradas, bajas };
   };
 
   switch (groupBy) {

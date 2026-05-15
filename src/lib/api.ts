@@ -53,6 +53,7 @@ type DeviceRow = {
   estado: 'nuevo' | 'traslado'; destinoId: number | null;
   asignacion: 'asignado' | 'pendiente';
   origenId: number | null; origenDescripcion: string | null;
+  tipoTraslado: string | null; destinoRedistribucion: string | null;
   createdAt: string; updatedAt: string;
 };
 type BajaRow = {
@@ -117,6 +118,8 @@ const mapDevice = (row: DeviceRow, officesById: Map<string, Office>): Device => 
   originOfficeId: row.origenId ? toId(row.origenId) : undefined,
   originOfficeDescription: row.origenDescripcion ?? undefined,
   asignacion: row.asignacion ?? 'asignado',
+  tipoTraslado: (row.tipoTraslado as 'permanente' | 'redistribuido' | null) ?? null,
+  destinoRedistribucion: row.destinoRedistribucion ?? undefined,
 });
 
 // ─── Core data loader (single round-trip, 7 parallel queries) ────────────────
@@ -677,6 +680,8 @@ export const createDevice = async (data: DeviceCreatePayload): Promise<DeviceCre
     asignacion: 'asignado',
     origenId: data.originOfficeId ? Number(data.originOfficeId) : null,
     origenDescripcion: data.originOfficeDescription ?? null,
+    tipoTraslado: data.tipoTraslado ?? null,
+    destinoRedistribucion: data.destinoRedistribucion || null,
   }));
 
   const { data: res, error } = await supabase!.from('dispositivo').insert(payload).select('*');
@@ -703,6 +708,8 @@ export const updateDevice = async (id: string, data: DeviceUpdatePayload): Promi
   if (data.originOfficeDescription !== undefined) payload.origenDescripcion = data.originOfficeDescription;
   if (data.asignacion !== undefined) payload.asignacion = data.asignacion;
   if (data.originOfficeId !== undefined || data.originOfficeDescription !== undefined) payload.estado = 'traslado';
+  if (data.tipoTraslado !== undefined) payload.tipoTraslado = data.tipoTraslado ?? null;
+  if (data.destinoRedistribucion !== undefined) payload.destinoRedistribucion = data.destinoRedistribucion || null;
 
   // Capturar oficina previa si va a cambiar el destino
   let prevDestino: { id: number | null; nombre: string } | null = null;

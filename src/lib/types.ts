@@ -52,6 +52,8 @@ export interface Device {
   originOfficeId?: string;
   originOfficeDescription?: string;
   asignacion: Asignacion;
+  tipoTraslado?: 'permanente' | 'redistribuido' | null;
+  destinoRedistribucion?: string;
 }
 
 export interface DeviceCreatePayload {
@@ -63,6 +65,8 @@ export interface DeviceCreatePayload {
   originOfficeId?: string;
   originOfficeDescription?: string;
   quantity?: number;
+  tipoTraslado?: 'permanente' | 'redistribuido' | null;
+  destinoRedistribucion?: string;
 }
 
 export interface DeviceCreateResponse {
@@ -78,6 +82,8 @@ export interface DeviceUpdatePayload {
   originOfficeId?: string;
   originOfficeDescription?: string;
   asignacion?: Asignacion;
+  tipoTraslado?: 'permanente' | 'redistribuido' | null;
+  destinoRedistribucion?: string;
 }
 
 export type HistorialAccion = 'creacion' | 'reasignacion' | 'intercambio' | 'baja' | 'desasignacion';

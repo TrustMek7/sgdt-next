@@ -4,6 +4,7 @@ export type ReportSubSection = {
   label: string;
   newDevices: { device: Device; type: DeviceType }[];
   transferDevices: { device: Device; type: DeviceType }[];
+  transferRedistribuido: { device: Device; type: DeviceType }[];
   salidas: TrasladoRegistro[];
   entradas: TrasladoRegistro[];
 };
@@ -13,6 +14,7 @@ export type ReportSection = {
   sublabel?: string;
   newDevices: { device: Device; type: DeviceType }[];
   transferDevices: { device: Device; type: DeviceType }[];
+  transferRedistribuido: { device: Device; type: DeviceType }[];
   salidas: TrasladoRegistro[];
   entradas: TrasladoRegistro[];
   bajas: Baja[];

@@ -35,16 +35,18 @@ function DeviceImageCell({ url, baseUrl }: { url?: string; baseUrl: string }) {
 
 // ─── Section devices (PDF) — groups by classification ─────────────────────────
 
-export function SectionDevicesPDF({ newDevices, transferDevices, salidas: _salidas, entradas: _entradas, baseUrl, clasificaciones }: {
+export function SectionDevicesPDF({ newDevices, transferDevices, transferRedistribuido, salidas: _salidas, entradas: _entradas, baseUrl, clasificaciones }: {
   newDevices: { device: Device; type: DeviceType }[];
   transferDevices: { device: Device; type: DeviceType }[];
+  transferRedistribuido: { device: Device; type: DeviceType }[];
   salidas: TrasladoRegistro[];
   entradas: TrasladoRegistro[];
   baseUrl: string;
   clasificaciones: Clasificacion[];
 }) {
-  const newGroups      = groupByClasif(newDevices, clasificaciones);
-  const transferGroups = groupByClasif(transferDevices, clasificaciones);
+  const newGroups           = groupByClasif(newDevices, clasificaciones);
+  const transferGroups      = groupByClasif(transferDevices, clasificaciones);
+  const redistribuidoGroups = groupByClasif(transferRedistribuido, clasificaciones);
 
   return (
     <>
@@ -125,6 +127,49 @@ export function SectionDevicesPDF({ newDevices, transferDevices, salidas: _salid
                     <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
                     <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{type.description}</Text></View>
                     <View style={[S.cell, { width: '38%' }]}><Text style={S.cellText}>{device.originOfficeDescription || '-'}</Text></View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        ))
+      )}
+
+      {/* ── Traslados redistribuidos ───────────────────────────────────────── */}
+      <Text style={S.sectionTitle}>TRASLADOS — REDISTRIBUIDOS ({transferRedistribuido.length})</Text>
+      {transferRedistribuido.length === 0 ? <Text style={S.noData}>Sin registros</Text> : (
+        redistribuidoGroups.map(({ name, items }, gi) => (
+          <View key={gi}>
+            {redistribuidoGroups.length > 1 && <Text style={S.clasifTitle}>{name.toUpperCase()} ({items.length})</Text>}
+            {!isElectronicsClasif(name) ? (
+              <View style={S.table}>
+                <TableHeader cols={[
+                  { label: 'CÓDIGO', style: { width: '20%' } },
+                  { label: 'DESCRIPCIÓN', style: { width: '50%' } },
+                  { label: 'DESTINO', style: { width: '30%', borderRight: 0 } },
+                ]} />
+                {items.map(({ device, type }, i) => (
+                  <View key={i} style={S.row} wrap={false}>
+                    <View style={[S.cell, { width: '20%' }]}><Text style={S.cellText}>{type.planCode}</Text></View>
+                    <View style={[S.cell, { width: '50%' }]}><Text style={S.cellText}>{type.description}</Text></View>
+                    <View style={[S.cell, { width: '30%', borderRight: 0 }]}><Text style={S.cellText}>{device.destinoRedistribucion || '-'}</Text></View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={S.table}>
+                <TableHeader cols={[
+                  { label: 'INVENTARIO', style: S.colCode }, { label: 'PLAN', style: S.colPlan },
+                  { label: 'DESCRIPCIÓN', style: { width: '30%' } }, { label: 'ORIGEN', style: { width: '28%' } },
+                  { label: 'DESTINO', style: { width: '18%', borderRight: 0 } },
+                ]} />
+                {items.map(({ device, type }, i) => (
+                  <View key={i} style={S.row} wrap={false}>
+                    <View style={[S.cell, S.colCode]}><Text style={S.cellText}>{device.inventoryCode || 'S/C'}</Text></View>
+                    <View style={[S.cell, S.colPlan]}><Text style={S.cellText}>{type.planCode}</Text></View>
+                    <View style={[S.cell, { width: '30%' }]}><Text style={S.cellText}>{type.description}</Text></View>
+                    <View style={[S.cell, { width: '28%' }]}><Text style={S.cellText}>{device.originOfficeDescription || '-'}</Text></View>
+                    <View style={[S.cell, { width: '18%', borderRight: 0 }]}><Text style={S.cellText}>{device.destinoRedistribucion || '-'}</Text></View>
                   </View>
                 ))}
               </View>
@@ -216,6 +261,7 @@ export function ReportPDF({ reports, baseUrl, groupBy }: {
                         <Text style={S.officeSubTitle}>{sub.label}</Text>
                         <SectionDevicesPDF
                           newDevices={sub.newDevices} transferDevices={sub.transferDevices}
+                          transferRedistribuido={sub.transferRedistribuido}
                           salidas={sub.salidas} entradas={sub.entradas}
                           baseUrl={baseUrl} clasificaciones={report.clasificaciones}
                         />
@@ -225,6 +271,7 @@ export function ReportPDF({ reports, baseUrl, groupBy }: {
                 ) : (
                   <SectionDevicesPDF
                     newDevices={section.newDevices} transferDevices={section.transferDevices}
+                    transferRedistribuido={section.transferRedistribuido}
                     salidas={section.salidas} entradas={section.entradas}
                     baseUrl={baseUrl} clasificaciones={report.clasificaciones}
                   />

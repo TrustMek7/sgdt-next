@@ -34,7 +34,8 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
   const [filterClasif, setFilterClasif] = useState('');
   const [filterStatus, setFilterStatus] = useState(initialStatus);
   const [filterAsig,   setFilterAsig]   = useState(initialAsig);
-  const [filterFloor,  setFilterFloor]  = useState('');
+  const [filterFloor,        setFilterFloor]        = useState('');
+  const [filterTipoTraslado, setFilterTipoTraslado] = useState('');
   const filterLoc = useLocationFilter({ areas, offices });
 
   // ── Modals ──────────────────────────────────────────────────────────────────
@@ -56,6 +57,8 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
   const [formData, setFormData] = useState({
     status: '', typeId: '', inventoryCodes: [''],
     destinationOfficeId: '', originOfficeDescription: '', quantity: 1,
+    tipoTraslado: '' as '' | 'permanente' | 'redistribuido',
+    destinoRedistribucion: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const formLoc     = useLocationFilter({ areas, offices });
@@ -69,6 +72,7 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
     }
     if (filterStatus && d.status !== filterStatus) return false;
     if (filterAsig && d.asignacion !== filterAsig) return false;
+    if (filterTipoTraslado && d.tipoTraslado !== filterTipoTraslado) return false;
     if (filterClasif) {
       const tipo = deviceTypes.find((t) => t.id === d.typeId);
       if (tipo?.clasificacionId !== filterClasif) return false;
@@ -85,7 +89,7 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
       }
     }
     return true;
-  }), [devices, search, filterStatus, filterAsig, filterClasif, filterFloor, filterLoc.officeId, filterLoc.areaId, filterLoc.depId, offices, areas, deviceTypes]);
+  }), [devices, search, filterStatus, filterAsig, filterClasif, filterFloor, filterTipoTraslado, filterLoc.officeId, filterLoc.areaId, filterLoc.depId, offices, areas, deviceTypes]);
 
   const { paginatedItems: pagedDevices, page, setPage, pageSize, setPageSize, totalPages, totalItems } = usePagination(filteredDevices, 10);
 
@@ -130,7 +134,7 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
 
   // ── Create/Edit form ─────────────────────────────────────────────────────────
   const resetForm = () => {
-    setFormData({ status: '', typeId: '', inventoryCodes: [''], destinationOfficeId: '', originOfficeDescription: '', quantity: 1 });
+    setFormData({ status: '', typeId: '', inventoryCodes: [''], destinationOfficeId: '', originOfficeDescription: '', quantity: 1, tipoTraslado: '', destinoRedistribucion: '' });
     setErrors({}); setEditing(null); formLoc.reset();
   };
 
@@ -141,6 +145,8 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
       status: d.status, typeId: d.typeId, inventoryCodes: [d.inventoryCode],
       destinationOfficeId: d.destinationOfficeId,
       originOfficeDescription: d.originOfficeDescription ?? '', quantity: 1,
+      tipoTraslado: d.tipoTraslado ?? '',
+      destinoRedistribucion: d.destinoRedistribucion ?? '',
     });
     setErrors({}); setIsModalOpen(true);
   };
@@ -154,12 +160,17 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
       errs.originOfficeDescription = 'Dirección de origen es requerida para traslados';
     if (Object.keys(errs).length) { setErrors(errs); return; }
     try {
+      const isTransfer = formData.status === 'Transfer' || editing?.status === 'Transfer';
       if (editing) {
         const payload: DeviceUpdatePayload = {
           inventoryCode: formData.inventoryCodes[0] || undefined,
           typeId: formData.typeId,
           destinationOfficeId: formData.destinationOfficeId || undefined,
           originOfficeDescription: formData.originOfficeDescription || undefined,
+          ...(isTransfer && {
+            tipoTraslado: formData.tipoTraslado || null,
+            destinoRedistribucion: formData.destinoRedistribucion || undefined,
+          }),
         };
         await updateDevice(editing.id, payload);
         toast.success('Dispositivo actualizado');
@@ -173,6 +184,10 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
           originOfficeDescription: formData.originOfficeDescription || undefined,
           inventoryCodes: codes,
           quantity: formData.quantity,
+          ...(isTransfer && {
+            tipoTraslado: formData.tipoTraslado || null,
+            destinoRedistribucion: formData.destinoRedistribucion || undefined,
+          }),
         };
         const res = await createDevice(payload);
         toast.success(`${res.created} dispositivo(s) creado(s)`);
@@ -283,6 +298,11 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
           <option value="New">Nuevo</option>
           <option value="Transfer">Traslado</option>
         </select>
+        <select className="input-field w-full sm:w-36" value={filterTipoTraslado} onChange={(e) => setFilterTipoTraslado(e.target.value)}>
+          <option value="">Tipo traslado</option>
+          <option value="permanente">Permanente</option>
+          <option value="redistribuido">Redistribuido</option>
+        </select>
         <select className="input-field w-full sm:w-32" value={filterAsig} onChange={(e) => setFilterAsig(e.target.value)}>
           <option value="">Asignación</option>
           <option value="asignado">Asignado</option>
@@ -316,7 +336,16 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
                     <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate hidden md:table-cell" title={tipo?.description}>{tipo?.description ?? '-'}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs hidden md:table-cell">{clasifName(tipo?.clasificacionId)}</td>
                     <td className="px-4 py-3 text-gray-600 text-xs">{device.destinationOfficeId ? officeName(device.destinationOfficeId) : <span className="text-yellow-600 font-medium">Sin asignar</span>}</td>
-                    <td className="px-4 py-3 text-center"><Badge status={device.status} /></td>
+                    <td className="px-4 py-3 text-center">
+                      <Badge status={device.status} />
+                      {device.status === 'Transfer' && device.tipoTraslado && (
+                        <span className={`block text-xs px-1.5 py-0.5 rounded-full mt-0.5 ${
+                          device.tipoTraslado === 'redistribuido' ? 'bg-purple-50 text-purple-700' : 'bg-teal-50 text-teal-700'
+                        }`}>
+                          {device.tipoTraslado === 'redistribuido' ? 'Redistribuido' : 'Permanente'}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-center hidden sm:table-cell">
                       <span className={`text-xs font-medium px-2 py-1 rounded-full ${device.asignacion === 'asignado' ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
                         {device.asignacion === 'asignado' ? 'Asignado' : 'Pendiente'}
@@ -416,12 +445,34 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
           </FormField>
 
           {(formData.status === 'Transfer' || editing?.status === 'Transfer') && (
-            <FormField label={`Dirección de origen${!editing ? ' *' : ''}`} error={errors.originOfficeDescription}>
-              <input type="text" value={formData.originOfficeDescription}
-                onChange={(e) => setFormData({ ...formData, originOfficeDescription: e.target.value })}
-                className={`input-field ${errors.originOfficeDescription ? 'border-red-500' : ''}`}
-                placeholder="Dirección o descripción del origen" />
-            </FormField>
+            <>
+              <FormField label={`Dirección de origen${!editing ? ' *' : ''}`} error={errors.originOfficeDescription}>
+                <input type="text" value={formData.originOfficeDescription}
+                  onChange={(e) => setFormData({ ...formData, originOfficeDescription: e.target.value })}
+                  className={`input-field ${errors.originOfficeDescription ? 'border-red-500' : ''}`}
+                  placeholder="Dirección o descripción del origen" />
+              </FormField>
+              <FormField label="Tipo de traslado">
+                <div className="flex gap-6 py-1">
+                  {(['permanente', 'redistribuido'] as const).map((v) => (
+                    <label key={v} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="radio" name="tipoTraslado" value={v}
+                        checked={formData.tipoTraslado === v}
+                        onChange={() => setFormData({ ...formData, tipoTraslado: v, destinoRedistribucion: '' })} />
+                      {v === 'permanente' ? 'Permanente' : 'Redistribuido'}
+                    </label>
+                  ))}
+                </div>
+              </FormField>
+              {formData.tipoTraslado === 'redistribuido' && (
+                <FormField label="Destino de redistribución">
+                  <input type="text" value={formData.destinoRedistribucion}
+                    onChange={(e) => setFormData({ ...formData, destinoRedistribucion: e.target.value })}
+                    className="input-field"
+                    placeholder="Ej: Edificio Central, Piso 3" />
+                </FormField>
+              )}
+            </>
           )}
 
           {editing ? (

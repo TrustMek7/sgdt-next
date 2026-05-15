@@ -31,15 +31,17 @@ export function PreviewTable({ title, cols, rows }: { title: string; cols: strin
 
 // ─── Devices + historial section — groups by classification ───────────────────
 
-export function SectionPreview({ newDevices, transferDevices, salidas: _salidas, entradas: _entradas, clasificaciones }: {
+export function SectionPreview({ newDevices, transferDevices, transferRedistribuido, salidas: _salidas, entradas: _entradas, clasificaciones }: {
   newDevices: { device: Device; type: DeviceType }[];
   transferDevices: { device: Device; type: DeviceType }[];
+  transferRedistribuido: { device: Device; type: DeviceType }[];
   salidas: TrasladoRegistro[];
   entradas: TrasladoRegistro[];
   clasificaciones: Clasificacion[];
 }) {
-  const newGroups      = groupByClasif(newDevices, clasificaciones);
-  const transferGroups = groupByClasif(transferDevices, clasificaciones);
+  const newGroups           = groupByClasif(newDevices, clasificaciones);
+  const transferGroups      = groupByClasif(transferDevices, clasificaciones);
+  const redistribuidoGroups = groupByClasif(transferRedistribuido, clasificaciones);
 
   return (
     <div className="space-y-4">
@@ -101,6 +103,39 @@ export function SectionPreview({ newDevices, transferDevices, salidas: _salidas,
                     rows={items.map(({ device, type }) => [
                       device.inventoryCode || 'S/C', type.planCode, type.description,
                       device.originOfficeDescription || '-',
+                    ])}
+                  />
+                )}
+              </div>
+            ))
+        }
+      </div>
+
+      {/* Redistribuidos */}
+      <div>
+        <p className="text-sm font-semibold text-gray-800 mb-2">Traslados redistribuidos ({transferRedistribuido.length})</p>
+        {transferRedistribuido.length === 0
+          ? <p className="text-xs text-gray-400 py-1">Sin registros</p>
+          : redistribuidoGroups.map(({ name, items }) => (
+              <div key={name} className="mb-3">
+                {redistribuidoGroups.length > 1 && (
+                  <p className="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-1">{name} ({items.length})</p>
+                )}
+                {!isElectronicsClasif(name) ? (
+                  <PreviewTable
+                    title=""
+                    cols={['Código', 'Descripción', 'Destino']}
+                    rows={items.map(({ device, type }) => [
+                      type.planCode, type.description, device.destinoRedistribucion || '-',
+                    ])}
+                  />
+                ) : (
+                  <PreviewTable
+                    title=""
+                    cols={['Inventario', 'Plan', 'Descripción', 'Origen', 'Destino']}
+                    rows={items.map(({ device, type }) => [
+                      device.inventoryCode || 'S/C', type.planCode, type.description,
+                      device.originOfficeDescription || '-', device.destinoRedistribucion || '-',
                     ])}
                   />
                 )}
