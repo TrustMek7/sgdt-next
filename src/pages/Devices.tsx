@@ -318,9 +318,9 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
               <tr>
                 <th className="px-4 py-3 font-medium">Código</th>
                 <th className="px-4 py-3 font-medium hidden sm:table-cell">Plan</th>
-                <th className="px-4 py-3 font-medium hidden md:table-cell">Descripción</th>
                 <th className="px-4 py-3 font-medium hidden md:table-cell">Clasificación</th>
                 <th className="px-4 py-3 font-medium">Área destino</th>
+                <th className="px-4 py-3 font-medium hidden md:table-cell">Origen</th>
                 <th className="px-4 py-3 font-medium text-center">Estado</th>
                 <th className="px-4 py-3 font-medium text-center hidden sm:table-cell">Asignación</th>
                 <th className="px-4 py-3 font-medium text-center">Acciones</th>
@@ -333,9 +333,9 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
                   <tr key={device.id} className={`hover:bg-gray-50 transition-colors ${device.asignacion === 'pendiente' ? 'bg-yellow-50/40' : ''}`}>
                     <td className="px-4 py-3 text-gray-700 font-mono text-xs">{device.inventoryCode || '-'}</td>
                     <td className="px-4 py-3 text-gray-700 hidden sm:table-cell">{device.planCode}</td>
-                    <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate hidden md:table-cell" title={tipo?.description}>{tipo?.description ?? '-'}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs hidden md:table-cell">{clasifName(tipo?.clasificacionId)}</td>
                     <td className="px-4 py-3 text-gray-600 text-xs">{device.destinationOfficeId ? officeName(device.destinationOfficeId) : <span className="text-yellow-600 font-medium">Sin asignar</span>}</td>
+                    <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate hidden md:table-cell" title={device.originOfficeDescription}>{device.originOfficeDescription || '-'}</td>
                     <td className="px-4 py-3 text-center">
                       <Badge status={device.status} />
                       {device.status === 'Transfer' && device.tipoTraslado && (
