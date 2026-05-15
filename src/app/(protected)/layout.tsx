@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
+import { UpdateBanner } from '@/components/UpdateBanner';
 
 function LoadingState() {
   return (
@@ -30,5 +31,10 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     return <LoadingState />;
   }
 
-  return <Layout>{children}</Layout>;
+  return (
+    <>
+      <Layout>{children}</Layout>
+      <UpdateBanner />
+    </>
+  );
 }

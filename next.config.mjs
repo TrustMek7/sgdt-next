@@ -4,6 +4,9 @@ const nextConfig = {
   experimental: {
     typedRoutes: true,
   },
+  env: {
+    BUILD_ID: new Date().toISOString(),
+  },
 };
 
 export default nextConfig;
