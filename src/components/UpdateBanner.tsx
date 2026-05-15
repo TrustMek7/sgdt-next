@@ -5,6 +5,12 @@ import { useVersionCheck } from '../hooks/useVersionCheck';
 
 const COUNTDOWN = 10;
 
+function forceReload() {
+  const url = new URL(window.location.href);
+  url.searchParams.set('_r', Date.now().toString());
+  window.location.replace(url.toString());
+}
+
 export function UpdateBanner() {
   const outdated = useVersionCheck();
   const [seconds, setSeconds] = useState(COUNTDOWN);
@@ -17,7 +23,7 @@ export function UpdateBanner() {
       setSeconds((s) => {
         if (s <= 1) {
           clearInterval(id);
-          window.location.reload();
+          forceReload();
           return 0;
         }
         return s - 1;
@@ -36,7 +42,7 @@ export function UpdateBanner() {
         <p className="text-indigo-200 text-xs">Actualizando en {seconds}s…</p>
       </div>
       <button
-        onClick={() => window.location.reload()}
+        onClick={forceReload}
         className="rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 transition-colors"
       >
         Actualizar ahora

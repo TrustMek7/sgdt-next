@@ -9,6 +9,13 @@ export function useVersionCheck() {
   const initialId = useRef<string | null>(null);
 
   useEffect(() => {
+    // Limpiar el param de cache-busting si venimos de un reload forzado
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('_r')) {
+      url.searchParams.delete('_r');
+      window.history.replaceState({}, '', url.toString());
+    }
+
     initialId.current = process.env.BUILD_ID ?? null;
     if (!initialId.current) return;
 
