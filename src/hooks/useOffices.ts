@@ -41,8 +41,8 @@ export function useOffices() {
     await loadData();
   };
 
-  const deleteOffice = async (id: string) => {
-    await officeService.remove(id);
+  const deleteOffice = async (id: string, deviceMode?: 'unassign' | 'delete') => {
+    await officeService.remove(id, deviceMode);
     await loadData();
   };
 

@@ -511,7 +511,16 @@ export const updateOffice = async (id: string, data: Partial<Office>): Promise<O
   return mapOffice(res as OfficeRow);
 };
 
-export const deleteOffice = async (id: string) => {
+export const deleteOffice = async (id: string, deviceMode: 'unassign' | 'delete' = 'unassign') => {
+  if (deviceMode === 'delete') {
+    const { error: devErr } = await supabase!.from('dispositivo').delete().eq('destinoId', id);
+    if (devErr) throw devErr;
+  } else {
+    const { error: devErr } = await supabase!.from('dispositivo')
+      .update({ asignacion: 'pendiente', destinoId: null })
+      .eq('destinoId', id);
+    if (devErr) throw devErr;
+  }
   const { error } = await supabase!.from('oficina').delete().eq('id', id);
   if (error) throw error;
   return { success: true };

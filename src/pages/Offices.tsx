@@ -4,7 +4,6 @@ import React, { useMemo, useState } from 'react';
 import { Plus, Edit, Trash2, History, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '../components/Modal';
-import { ConfirmModal } from '../components/ConfirmModal';
 import { FormField } from '../components/FormField';
 import { ModalActions } from '../components/ModalActions';
 import { Pagination } from '../components/Pagination';
@@ -77,15 +76,14 @@ export function Offices() {
     } catch (err) { toast.error(`No se pudo guardar el área: ${getErrorMessage(err)}`); }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = async (deviceMode: 'unassign' | 'delete') => {
     if (!toDelete) return;
-    if ((toDelete.deviceCount ?? 0) > 0) {
-      toast.error('No se puede eliminar: tiene dispositivos asignados');
-      setIsDeleteOpen(false); return;
-    }
     try {
-      await deleteOffice(toDelete.id);
-      toast.success('Área eliminada');
+      await deleteOffice(toDelete.id, deviceMode);
+      toast.success(deviceMode === 'delete'
+        ? `Área y ${toDelete.deviceCount ?? 0} dispositivo(s) eliminados`
+        : 'Área eliminada — dispositivos desasignados (pendiente)'
+      );
       setIsDeleteOpen(false); setToDelete(null);
     } catch (err) { toast.error(`No se pudo eliminar el área: ${getErrorMessage(err)}`); }
   };
@@ -287,19 +285,42 @@ export function Offices() {
         })()}
       </Modal>
 
-      <ConfirmModal
-        isOpen={isDeleteOpen}
-        onClose={() => setIsDeleteOpen(false)}
-        onConfirm={handleDelete}
-        heading="¿Eliminar área?"
-        detail={toDelete ? `${toDelete.name} — Piso ${toDelete.floor}` : undefined}
-        confirmDisabled={(toDelete?.deviceCount ?? 0) > 0}
-        warning="Esta acción no se puede deshacer."
-      >
-        {(toDelete?.deviceCount ?? 0) > 0 && (
-          <p className="text-sm text-red-700 mt-2">Tiene {toDelete?.deviceCount} dispositivo(s). No se puede eliminar.</p>
-        )}
-      </ConfirmModal>
+      <Modal isOpen={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} title="Eliminar área">
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm text-gray-700">
+              Vas a eliminar <span className="font-semibold">{toDelete?.name}</span> (Piso {toDelete?.floor}).
+            </p>
+            {(toDelete?.deviceCount ?? 0) > 0 && (
+              <p className="text-sm text-amber-700 mt-1">
+                Esta área tiene <span className="font-semibold">{toDelete?.deviceCount} dispositivo(s)</span> asignados.
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col gap-2 pt-1">
+            <button
+              onClick={() => handleDelete('unassign')}
+              className="w-full px-4 py-2.5 text-sm font-medium text-left rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition"
+            >
+              Eliminar área, desasignar equipos
+              <span className="block text-xs font-normal text-amber-600 mt-0.5">Los dispositivos quedan en estado pendiente</span>
+            </button>
+            <button
+              onClick={() => handleDelete('delete')}
+              className="w-full px-4 py-2.5 text-sm font-medium text-left rounded-lg border border-red-300 bg-red-50 text-red-800 hover:bg-red-100 transition"
+            >
+              Eliminar área y equipos
+              <span className="block text-xs font-normal text-red-600 mt-0.5">Se borran también todos los dispositivos asignados</span>
+            </button>
+            <button
+              onClick={() => setIsDeleteOpen(false)}
+              className="w-full px-4 py-2 text-sm font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
