@@ -34,6 +34,7 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
   const [filterClasif, setFilterClasif] = useState('');
   const [filterStatus, setFilterStatus] = useState(initialStatus);
   const [filterAsig,   setFilterAsig]   = useState(initialAsig);
+  const [filterFloor,  setFilterFloor]  = useState('');
   const filterLoc = useLocationFilter({ areas, offices });
 
   // ── Modals ──────────────────────────────────────────────────────────────────
@@ -72,18 +73,19 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
       const tipo = deviceTypes.find((t) => t.id === d.typeId);
       if (tipo?.clasificacionId !== filterClasif) return false;
     }
-    if (filterLoc.officeId || filterLoc.areaId || filterLoc.depId) {
+    if (filterLoc.officeId || filterLoc.areaId || filterLoc.depId || filterFloor) {
       const office = offices.find((o) => o.id === d.destinationOfficeId);
       if (!office) return filterAsig === 'pendiente' || !d.destinationOfficeId;
       if (filterLoc.officeId && office.id !== filterLoc.officeId) return false;
       if (filterLoc.areaId && office.areaId !== filterLoc.areaId) return false;
+      if (filterFloor && office.floor.toString() !== filterFloor) return false;
       if (filterLoc.depId) {
         const area = areas.find((a) => a.id === office.areaId);
         if (area?.dependenciaId !== filterLoc.depId) return false;
       }
     }
     return true;
-  }), [devices, search, filterStatus, filterAsig, filterClasif, filterLoc.officeId, filterLoc.areaId, filterLoc.depId, offices, areas, deviceTypes]);
+  }), [devices, search, filterStatus, filterAsig, filterClasif, filterFloor, filterLoc.officeId, filterLoc.areaId, filterLoc.depId, offices, areas, deviceTypes]);
 
   const { paginatedItems: pagedDevices, page, setPage, pageSize, setPageSize, totalPages, totalItems } = usePagination(filteredDevices, 10);
 
@@ -265,6 +267,12 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
         <select className="input-field w-full sm:w-48" value={filterLoc.officeId} onChange={(e) => filterLoc.setOfficeId(e.target.value)}>
           <option value="">Área</option>
           {filterLoc.filteredOffices.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+        </select>
+        <select className="input-field w-full sm:w-28" value={filterFloor} onChange={(e) => setFilterFloor(e.target.value)}>
+          <option value="">Piso</option>
+          {[...new Set(offices.map((o) => o.floor))].sort((a, b) => a - b).map((f) => (
+            <option key={f} value={f}>Piso {f}</option>
+          ))}
         </select>
         <select className="input-field w-full sm:w-36" value={filterClasif} onChange={(e) => setFilterClasif(e.target.value)}>
           <option value="">Clasificación</option>
