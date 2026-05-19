@@ -474,7 +474,17 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
             <select value={formData.destinationOfficeId} onChange={(e) => setFormData({ ...formData, destinationOfficeId: e.target.value })}
               className={`input-field ${errors.destinationOfficeId ? 'border-red-500' : ''}`}>
               <option value="">Seleccionar área...</option>
-              {(editing ? offices : formLoc.filteredOffices).map((o) => <option key={o.id} value={o.id}>{o.name} — Piso {o.floor}</option>)}
+              {(() => {
+                const list = editing ? offices : formLoc.filteredOffices;
+                const floors = [...new Set(list.map((o) => o.floor))].sort((a, b) => a - b);
+                return floors.map((floor) => (
+                  <optgroup key={floor} label={`Piso ${floor}`}>
+                    {list.filter((o) => o.floor === floor).map((o) => (
+                      <option key={o.id} value={o.id}>{o.name}</option>
+                    ))}
+                  </optgroup>
+                ));
+              })()}
             </select>
           </FormField>
 
