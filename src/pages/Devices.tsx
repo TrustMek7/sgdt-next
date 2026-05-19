@@ -120,12 +120,46 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
     FURNITURE_KEYWORDS.some((k) => selectedClasif.name.toLowerCase().includes(k)),
   );
 
+  const furnitureAbbrevMap = useMemo(() => {
+    const STOP = new Set(['DE', 'DEL', 'LA', 'LAS', 'LOS', 'EL', 'PARA', 'AL', 'Y', 'A', 'E', 'EN', 'CON', 'UN', 'UNA', 'INC', 'TIPO']);
+    const norm = (s: string) => s.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const furiTypes = deviceTypes.filter((t) => {
+      const c = clasificaciones.find((cl) => cl.id === t.clasificacionId);
+      return c && FURNITURE_KEYWORDS.some((k) => c.name.toLowerCase().includes(k));
+    });
+    const makeAbbrev = (desc: string, w1: number, w2: number): string => {
+      const words = norm(desc).split(/[\s/]+/).filter((w) => !STOP.has(w) && /[A-Z]/.test(w[0] ?? ''));
+      const num = desc.match(/\d+/)?.[0] ?? '';
+      if (!words.length) return norm(desc).replace(/[^A-Z0-9]/g, '').slice(0, 4);
+      let a = words[0].slice(0, w1);
+      if (words[1]) a += words[1].slice(0, w2);
+      if (words[2] && a.length < w1 + w2) a += words[2][0];
+      return a + num;
+    };
+    let map = new Map<string, string>();
+    for (const [w1, w2] of [[3, 1], [3, 2], [4, 1], [4, 2], [5, 2]] as [number, number][]) {
+      map = new Map(furiTypes.map((t) => [t.id, makeAbbrev(t.description, w1, w2)]));
+      const vals = [...map.values()];
+      if (new Set(vals).size === vals.length) break;
+    }
+    // Fallback: add index suffix for any remaining conflicts
+    const counts = new Map<string, string[]>();
+    for (const [id, abbrev] of map) {
+      if (!counts.has(abbrev)) counts.set(abbrev, []);
+      counts.get(abbrev)!.push(id);
+    }
+    for (const [abbrev, ids] of counts) {
+      if (ids.length > 1) ids.forEach((id, i) => map.set(id, `${abbrev}${i + 1}`));
+    }
+    return map;
+  }, [deviceTypes, clasificaciones]);
+
   const generateFurnitureCodes = (typeId: string, officeId: string, qty: number): string[] => {
     const type   = deviceTypes.find((t) => t.id === typeId);
     const office = offices.find((o) => o.id === officeId);
     if (!type || !office) return Array(qty).fill('') as string[];
     const officeAbbrev = office.name.split(/\s+/).map((w) => w[0]?.toUpperCase() ?? '').join('').slice(0, 4);
-    const typeAbbrev   = type.description.slice(0, 3).toUpperCase();
+    const typeAbbrev   = furnitureAbbrevMap.get(typeId) ?? type.description.slice(0, 3).toUpperCase();
     const existing     = devices.filter((d) => d.typeId === typeId && d.destinationOfficeId === officeId).length;
     return Array.from({ length: qty }, (_, i) =>
       `${officeAbbrev}-${typeAbbrev}-${String(existing + i + 1).padStart(3, '0')}`,
