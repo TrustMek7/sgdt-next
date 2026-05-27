@@ -538,13 +538,14 @@ export const getDeviceTypes = async (): Promise<DeviceType[]> => {
 };
 
 export const createDeviceType = async (data: Partial<DeviceType>): Promise<DeviceType> => {
+  const codigo = data.planCode ?? data.id ?? '';
   const payload = {
-    codigo: data.planCode ?? data.id ?? '',
+    codigo,
     descripcion: data.description ?? '',
     caracteristicas: data.characteristics ?? null,
     marcaModelo: data.brandModel ?? null,
     imagenUrl: data.imageUrl ?? null,
-    esTraslado: data.isTransfer ?? false,
+    esTraslado: codigo.startsWith('Ex'),
     clasificacionId: data.clasificacionId ? Number(data.clasificacionId) : null,
   };
   const { data: res, error } = await supabase!.from('tipo_dispositivo').insert([payload]).select().single();
@@ -554,12 +555,15 @@ export const createDeviceType = async (data: Partial<DeviceType>): Promise<Devic
 
 export const updateDeviceType = async (id: string, data: Partial<DeviceType>): Promise<DeviceType> => {
   const payload: Record<string, unknown> = {};
-  if (data.planCode !== undefined || data.id !== undefined) payload.codigo = data.planCode ?? data.id;
+  if (data.planCode !== undefined || data.id !== undefined) {
+    const codigo = data.planCode ?? data.id ?? '';
+    payload.codigo = codigo;
+    payload.esTraslado = codigo.startsWith('Ex');
+  }
   if (data.description !== undefined) payload.descripcion = data.description;
   if (data.characteristics !== undefined) payload.caracteristicas = data.characteristics;
   if (data.brandModel !== undefined) payload.marcaModelo = data.brandModel;
   if (data.imageUrl !== undefined) payload.imagenUrl = data.imageUrl;
-  if (data.isTransfer !== undefined) payload.esTraslado = data.isTransfer;
   if (data.clasificacionId !== undefined) payload.clasificacionId = data.clasificacionId ? Number(data.clasificacionId) : null;
   const { data: res, error } = await supabase!.from('tipo_dispositivo').update(payload).eq('codigo', id).select().single();
   if (error) throw error;
