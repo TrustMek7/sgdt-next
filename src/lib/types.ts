@@ -76,6 +76,7 @@ export interface DeviceCreateResponse {
 }
 
 export interface DeviceUpdatePayload {
+  status?: Status;
   inventoryCode?: string;
   typeId?: string;
   destinationOfficeId?: string | null;

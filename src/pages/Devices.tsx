@@ -194,9 +194,11 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
       errs.originOfficeDescription = 'Dirección de origen es requerida para traslados';
     if (Object.keys(errs).length) { setErrors(errs); return; }
     try {
-      const isTransfer = formData.status === 'Transfer' || editing?.status === 'Transfer';
+      const isTransfer = formData.status === 'Transfer';
       if (editing) {
+        const newStatus = formData.status as 'New' | 'Transfer';
         const payload: DeviceUpdatePayload = {
+          status: newStatus !== editing.status ? newStatus : undefined,
           inventoryCode: formData.inventoryCodes[0] || undefined,
           typeId: formData.typeId,
           destinationOfficeId: formData.destinationOfficeId || undefined,
@@ -426,7 +428,7 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); resetForm(); }}
         title={editing ? `Editar Dispositivo ${editing.inventoryCode || editing.planCode}` : 'Nuevo Dispositivo'}>
         <div className="space-y-4">
-          {!editing && (
+          {!editing ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Estado" error={errors.status}>
                 <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value, typeId: '' })}
@@ -444,6 +446,17 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
                   }} className="input-field" />
               </FormField>
             </div>
+          ) : (
+            <FormField label="Estado">
+              <select
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value, typeId: '' })}
+                className="input-field"
+              >
+                <option value="New">Nuevo</option>
+                <option value="Transfer">Traslado</option>
+              </select>
+            </FormField>
           )}
           <FormField label="Tipo" required error={errors.typeId}>
             <select value={formData.typeId} onChange={(e) => setFormData({ ...formData, typeId: e.target.value })}
@@ -488,7 +501,7 @@ export function Devices({ initialStatus = '', initialAsig = '' }: DevicesProps) 
             </select>
           </FormField>
 
-          {(formData.status === 'Transfer' || editing?.status === 'Transfer') && (
+          {formData.status === 'Transfer' && (
             <>
               <FormField label={`Dirección de origen${!editing ? ' *' : ''}`} error={errors.originOfficeDescription}>
                 <input type="text" value={formData.originOfficeDescription}

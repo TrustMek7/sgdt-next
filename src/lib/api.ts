@@ -707,7 +707,11 @@ export const updateDevice = async (id: string, data: DeviceUpdatePayload): Promi
   if (data.originOfficeId !== undefined) payload.origenId = Number(data.originOfficeId);
   if (data.originOfficeDescription !== undefined) payload.origenDescripcion = data.originOfficeDescription;
   if (data.asignacion !== undefined) payload.asignacion = data.asignacion;
-  if (data.originOfficeId !== undefined || data.originOfficeDescription !== undefined) payload.estado = 'traslado';
+  if (data.status !== undefined) {
+    payload.estado = data.status === 'Transfer' ? 'traslado' : 'nuevo';
+  } else if (data.originOfficeId !== undefined || data.originOfficeDescription !== undefined) {
+    payload.estado = 'traslado';
+  }
   if (data.tipoTraslado !== undefined) payload.tipoTraslado = data.tipoTraslado ?? null;
   if (data.destinoRedistribucion !== undefined) payload.destinoRedistribucion = data.destinoRedistribucion || null;
 

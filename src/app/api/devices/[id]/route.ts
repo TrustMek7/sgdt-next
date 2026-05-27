@@ -24,6 +24,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const { id } = await params;
     const body = await request.json();
     const device = await updateDevice(id, {
+      status: body?.status !== undefined ? String(body.status) as 'New' | 'Transfer' : undefined,
       inventoryCode: body?.inventoryCode !== undefined ? String(body.inventoryCode) : undefined,
       typeId: body?.typeId !== undefined ? String(body.typeId) : undefined,
       destinationOfficeId: body?.destinationOfficeId !== undefined ? String(body.destinationOfficeId) : undefined,
